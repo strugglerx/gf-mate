@@ -14,6 +14,10 @@
 给任何 GoFrame v2 项目一键注入**随行智能伙伴**与「自然语言查数 + 数据智能分析」能力。
 自带可嵌入任意前端系统的悬浮陪伴小窗组件，AI 自动根据意图与数据形态选择表格/柱状/折线/饼图/指标卡精准呈现。
 
+<p align="center">
+  <img src="docs/images/gf-mate-modes.png" alt="gf-mate Web Component Preview" width="860">
+</p>
+
 **极简快速集成**：不用手写字段，`mate.FromStruct(&entity.X{})` 反射 GoFrame 模型即得数据集；
 或者 `Mode: "all"` 全库自动注册，一行代码都不用写。
 

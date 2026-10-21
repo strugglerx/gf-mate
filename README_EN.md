@@ -14,6 +14,10 @@
 An intelligent companion and natural language data analysis copilot for any **GoFrame v2** application.
 Features an embeddable floating companion widget for any frontend stack. The AI automatically inspects query intent and result shapes to present tables, bar charts, line charts, pie charts, or metric cards.
 
+<p align="center">
+  <img src="docs/images/gf-mate-modes.png" alt="gf-mate Web Component Preview" width="860">
+</p>
+
 **Zero-boilerplate Integration**: Reflect your GoFrame entity models with `mate.FromStruct(&entity.X{})` without manual field mapping, or enable `Mode: "all"` for automatic, zero-code registration across the entire database.
 
 ---
