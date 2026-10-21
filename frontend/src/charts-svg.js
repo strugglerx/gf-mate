@@ -54,11 +54,18 @@ function renderTable(r) {
 
 // ---- bar / line 通用坐标图 ----
 function renderXY(r, type) {
-  const data = r.data || [];
+  let data = r.data || [];
   const series = r.series || [];
   const xField = r.x_axis && r.x_axis.field;
   if (!data.length || !series.length || !xField) {
     return renderTable(r); // 数据不全退化为表格
+  }
+
+  let hintText = '';
+  // 柱状图防爆：超过 24 项时截取前 24 项，避免柱子挤成发丝
+  if (type === 'chart_bar' && data.length > 24) {
+    data = data.slice(0, 24);
+    hintText = '（展示前 24 项）';
   }
 
   const W = 480, H = 240;
@@ -120,23 +127,40 @@ function renderXY(r, type) {
       });
       const dAttr = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
       svg.appendChild(el('path', { d: dAttr, fill: 'none', stroke: PALETTE[si % PALETTE.length], 'stroke-width': 2, 'stroke-linejoin': 'round' }));
-      pts.forEach((p, i) => {
-        const c = el('circle', { cx: p[0].toFixed(1), cy: p[1].toFixed(1), r: 3, fill: PALETTE[si % PALETTE.length] });
-        c.setAttribute('data-tip', (xs[i] || '') + ' · ' + (s.name || s.field) + '：' + fmtNum(data[i][s.field]));
-        svg.appendChild(c);
-      });
+      // 密集折线防爆：超过 48 个点不绘实心圆点，避免圆圈重叠
+      if (data.length <= 48) {
+        pts.forEach((p, i) => {
+          const c = el('circle', { cx: p[0].toFixed(1), cy: p[1].toFixed(1), r: 3, fill: PALETTE[si % PALETTE.length] });
+          c.setAttribute('data-tip', (xs[i] || '') + ' · ' + (s.name || s.field) + '：' + fmtNum(data[i][s.field]));
+          svg.appendChild(c);
+        });
+      }
     });
   }
 
-  return wrapChart(svg, r, series);
+  return wrapChart(svg, r, series, hintText);
 }
 
 // ---- pie ----
 function renderPie(r) {
-  const data = r.data || [];
+  let data = r.data || [];
   const nameField = r.name_field;
   const valueField = r.value_field;
   if (!data.length || !nameField || !valueField) return renderTable(r);
+
+  let hintText = '';
+  // 饼图防爆：超过 7 项时，取前 6 项，其余归为「其他」，保证右侧图例与扇区不溢出
+  if (data.length > 7) {
+    const sorted = [...data].sort((a, b) => (Number(b[valueField]) || 0) - (Number(a[valueField]) || 0));
+    const top = sorted.slice(0, 6);
+    const rest = sorted.slice(6);
+    const restSum = rest.reduce((sum, item) => sum + (Number(item[valueField]) || 0), 0);
+    if (restSum > 0) {
+      top.push({ [nameField]: '其他', [valueField]: restSum });
+    }
+    data = top;
+    hintText = '（Top 6 + 其他）';
+  }
 
   const W = 480, H = 240;
   const cx = 130, cy = H / 2, R = 88;
@@ -171,7 +195,7 @@ function renderPie(r) {
     svg.appendChild(name);
   });
 
-  return wrapChart(svg, r, []);
+  return wrapChart(svg, r, [], hintText);
 }
 
 // ---- metric_cards ----
@@ -200,13 +224,13 @@ function renderMetrics(r) {
 }
 
 // 包装：标题 + svg 容器。
-function wrapChart(svg, r, series) {
+function wrapChart(svg, r, series, hintText) {
   const wrap = document.createElement('div');
   wrap.className = 'render-card';
-  if (r.title) {
+  if (r.title || hintText) {
     const t = document.createElement('div');
     t.className = 'chart-title';
-    t.textContent = r.title;
+    t.textContent = (r.title || '数据图表') + (hintText ? ' ' + hintText : '');
     wrap.appendChild(t);
   }
   // svg 自适应容器宽度。

@@ -1,6 +1,6 @@
 {
   "name": "gf-mate-widget",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "gf-mate 嵌入式 AI 数据助手（单文件 bundle）",
   "private": true,
   "scripts": {

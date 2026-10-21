@@ -344,6 +344,49 @@ window.DQWidget.toggle(); // 切换开合
 <iframe src="/mate/widget.html?title=工程助手&color=%23059669" style="position:fixed;right:20px;bottom:20px;width:420px;height:640px;border:none;z-index:9999"></iframe>
 ```
 
+### 方式四：Vue 3 官方推荐高级富渲染组件（@struggler/smart-ai-renderer）
+
+如果您的系统是 **Vue 3 体系**（如后台管理系统、内嵌 BI 看板），需要将 AI 对话与图表卡片**深度无缝嵌入在业务页面内部**，推荐直接使用官方配套的高级富渲染 npm 包：
+
+```bash
+npm install @struggler/smart-ai-renderer
+# 或 pnpm add @struggler/smart-ai-renderer
+```
+
+`gf-mate` 后端输出的 `data_table`、`chart_bar`、`chart_line`、`chart_pie`、`metric_cards` 等渲染协议与该组件 **100% 原生互通**，且自带完整强大的 Naive UI 和 ECharts 富交互能力：
+
+```vue
+<script setup>
+import { ref } from 'vue'
+import { ChatMessageRenderer } from '@struggler/smart-ai-renderer'
+import '@struggler/smart-ai-renderer/style.css'
+
+const content = ref('')
+const streaming = ref(false)
+
+async function queryAI(prompt) {
+  streaming.value = true
+  const res = await fetch('/mate/assistant/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: prompt })
+  })
+  // 消费标准 OpenAI SSE 流，将 delta.content 追加至 content.value
+  // ...
+  streaming.value = false
+}
+</script>
+
+<template>
+  <!-- 直接渲染 gf-mate 的图表与 markdown 内容 -->
+  <ChatMessageRenderer 
+    :content="content" 
+    :streaming="streaming" 
+    :theme="{ brand: '#4f46e5', radiusMd: '8px' }" 
+  />
+</template>
+```
+
 ### 跨域
 
 插件内置 CORS 中间件：回显 Origin + `Access-Control-Allow-Credentials` + OPTIONS 预检。

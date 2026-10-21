@@ -286,6 +286,48 @@ window.DQWidget.toggle(); // Toggle visibility
 <iframe src="/mate/widget.html?title=Analytics&color=%23059669" style="position:fixed;right:20px;bottom:20px;width:420px;height:640px;border:none;z-index:9999"></iframe>
 ```
 
+### Method 4: Official Vue 3 Rich Renderer (@struggler/smart-ai-renderer)
+
+If you are developing a **Vue 3 application** (e.g. an admin dashboard or embedded BI portal) and want to embed AI chat and interactive visualization cards **inline within your page**, use the companion rich renderer package:
+
+```bash
+npm install @struggler/smart-ai-renderer
+# or pnpm add @struggler/smart-ai-renderer
+```
+
+The structured rendering protocols (`data_table`, `chart_bar`, `chart_line`, `chart_pie`, `metric_cards`) produced by `gf-mate` are **100% natively compatible** with this package, offering rich interactive features powered by Naive UI and ECharts:
+
+```vue
+<script setup>
+import { ref } from 'vue'
+import { ChatMessageRenderer } from '@struggler/smart-ai-renderer'
+import '@struggler/smart-ai-renderer/style.css'
+
+const content = ref('')
+const streaming = ref(false)
+
+async function queryAI(prompt) {
+  streaming.value = true
+  const res = await fetch('/mate/assistant/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: prompt })
+  })
+  // Stream SSE response and append delta.content to content.value...
+  streaming.value = false
+}
+</script>
+
+<template>
+  <!-- Renders markdown and all gf-mate chart blocks natively -->
+  <ChatMessageRenderer 
+    :content="content" 
+    :streaming="streaming" 
+    :theme="{ brand: '#4f46e5', radiusMd: '8px' }" 
+  />
+</template>
+```
+
 ---
 
 ## Configuration Reference

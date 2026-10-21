@@ -848,6 +848,8 @@ body, :host, .dq-widget-root {
 }
 .data-table-wrap {
   overflow-x: auto;
+  max-height: 280px;
+  overflow-y: auto;
   border: 1px solid var(--c-border);
   border-radius: 8px;
   background: var(--c-surface);
@@ -864,6 +866,9 @@ body, :host, .dq-widget-root {
   border-bottom: 1px solid var(--c-divider);
 }
 .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: #f8fafc;
   font-weight: 600;
   color: var(--c-text-secondary);
