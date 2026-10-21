@@ -1,0 +1,24 @@
+# gf-mate 插件配置示例
+mate:
+  mode: whitelist            # whitelist | all
+  excludeTables:             # all 模式排除
+    - "sys_user"
+    - "sys_config"
+  includeSchemas: []         # all 模式限定库，空=当前库
+  maxLimit: 1000
+  maxQueryRows: 10000        # 单次扫描上限保护
+  assistant:
+    enabled: true
+    baseUrl: "https://api.deepseek.com/v1"   # OpenAI 兼容
+    apiKey: "${DQ_LLM_KEY}"                  # 支持环境变量占位
+    model: "deepseek-chat"
+    maxToolCallsPerTurn: 8      # 单轮最多工具调用次数（防失控）
+    requestTimeoutSec: 60
+    maxContextChars: 24000
+  render:
+    enabledTypes:              # 一期 5 种
+      - data_table
+      - chart_bar
+      - chart_line
+      - chart_pie
+      - metric_cards

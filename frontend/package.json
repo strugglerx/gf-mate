@@ -1,0 +1,16 @@
+{
+  "name": "gf-mate-widget",
+  "version": "0.1.0",
+  "description": "gf-mate 嵌入式 AI 数据助手（单文件 bundle）",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  },
+  "dependencies": {
+    "dompurify": "^3.1.6",
+    "marked": "^12.0.2"
+  }
+}

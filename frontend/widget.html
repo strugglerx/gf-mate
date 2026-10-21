@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 数据助手</title>
+  <link rel="stylesheet" href="./src/widget.css">
+</head>
+<body>
+  <!-- 国内高速 CDN 源，零 ECharts 依赖（采用自研 SVG 渲染器） -->
+  <script src="https://cdn.bootcdn.net/ajax/libs/marked/12.0.1/marked.min.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
+  <script type="module">
+    import { renderRenderJSON } from './src/charts-svg.js';
+    import { initWidget } from './src/widget-core.js';
+    window.renderRenderJSON = renderRenderJSON;
+    const params = new URLSearchParams(location.search);
+    const title = params.get('title') || undefined;
+    const color = params.get('color') || undefined;
+    const examples = params.get('examples') || undefined;
+    if (title) document.title = title;
+    initWidget(document.body, { title, color, examples });
+  </script>
+</body>
+</html>

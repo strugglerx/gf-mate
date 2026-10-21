@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>宿主系统演示 - gf-mate 嵌入体验</title>
+  <style>
+    /* 模拟一个"宿主系统"的页面样式（假装是 React/Vue 做的业务系统） */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f6f8; color: #1e293b; }
+    .host-nav { background: #1e293b; color: #fff; padding: 14px 32px; display: flex; gap: 24px; font-size: 14px; }
+    .host-nav .logo { font-weight: 700; }
+    .host-nav span { opacity: 0.7; }
+    .host-main { max-width: 960px; margin: 40px auto; padding: 0 20px; }
+    .host-card { background: #fff; border-radius: 12px; padding: 32px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .host-card h1 { font-size: 20px; margin-bottom: 10px; }
+    .host-card p { color: #64748b; font-size: 14px; line-height: 1.8; }
+    .host-card code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    .hint { position: fixed; bottom: 90px; right: 30px; background: #1e293b; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,.3); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+  </style>
+</head>
+<body>
+  <nav class="host-nav">
+    <span class="logo">业务管理系统</span>
+    <span>首页</span><span>工单</span><span>报表</span><span>设置</span>
+  </nav>
+
+  <main class="host-main">
+    <div class="host-card">
+      <h1>这是一个普通的业务系统页面</h1>
+      <p>本页面模拟宿主系统（React / Vue / 任意技术栈）。右下角的 <b>浮动气泡</b> 就是 gf-mate 插件嵌入的 AI 数据助手——整个接入只有一行代码：</p>
+      <p style="margin-top:12px"><code>&lt;script src="/dq/embed.js" data-dq-base="/dq" data-dq-auto&gt;&lt;/script&gt;</code></p>
+    </div>
+    <div class="host-card">
+      <h1>试试这些问题</h1>
+      <p>· 统计各状态数据的数量分布<br>· 按类别汇总占比，给个饼图<br>· 查看排名前 5 的类别统计<br>· 查最近更新的 10 条明细数据</p>
+    </div>
+    <div class="host-card">
+      <h1>完整工作台</h1>
+      <p>需要手动查询构造器（维度/度量/过滤）？访问 <a href="/dq/">完整版 Playground</a>。</p>
+    </div>
+  </main>
+
+  <div class="hint">点击右下角气泡体验 AI 数据助手</div>
+
+  <!-- 唯一的接入代码 -->
+  <script src="/dq/embed.js" data-dq-base="/dq" data-dq-auto></script>
+</body>
+</html>

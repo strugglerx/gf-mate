@@ -1,0 +1,64 @@
+# === gf-mate 插件仓库 ===
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+bin/
+tmp/
+*.tmp
+/tmp/
+
+# Go 测试覆盖率
+*.cover
+coverage.txt
+coverage.html
+
+# 依赖
+vendor/
+node_modules/
+
+# 前端缓存（dist/dq-widget.js 构建产物入库，供宿主 <script> 直接引用）
+frontend/.cache/
+frontend/node_modules/
+*.tsbuildinfo
+
+# 环境与密钥（绝不入库）
+.env
+.env.*
+*.local
+config.yaml
+!config.yaml.example
+config.prod.yaml
+config.test.yaml
+config.admin.yaml
+
+# 私人文档与草稿（架构文档 docs/architecture.md 正常入库）
+docs/private/
+*.draft.md/private/
+docs/*.draft.md
+scripts/*.local.sh
+
+# 日志
+logs/
+*.log
+
+# IDE 与系统
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# pnpm
+.pnpm-store/
+pnpm-debug.log*
+
+# 本地编译产物（二进制，不带路径前缀误伤源码目录）
+/dq-server
+/server
+examples/server/server
+examples/rebuild-integration/rebuild-integration
