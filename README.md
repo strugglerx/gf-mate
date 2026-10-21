@@ -5,7 +5,7 @@
 </p>
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/strugglerx/gf-mate.svg)](https://pkg.go.dev/github.com/strugglerx/gf-mate)
-[![Go Report Card](https://goreportcard.com/badge/github.com/strugglerx/gf-mate)](https://goreportcard.com/report/github.com/strugglerx/gf-mate)
+[![CI](https://github.com/strugglerx/gf-mate/actions/workflows/ci.yml/badge.svg)](https://github.com/strugglerx/gf-mate/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/strugglerx/gf-mate.svg)](https://github.com/strugglerx/gf-mate/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![GoFrame](https://img.shields.io/badge/Powered%20By-GoFrame%20v2.10-f36c46.svg)](https://goframe.org)
