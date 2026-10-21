@@ -77,6 +77,24 @@ func (r *Registry) Get(name string) (*model.Dataset, error) {
 	return &cp, nil
 }
 
+// FindByTable 按物理表名查数据集（大小写不敏感），未找到返回 nil。
+// 多数据源路由用：表 → 数据集 → Source。
+func (r *Registry) FindByTable(table string) *model.Dataset {
+	if table == "" {
+		return nil
+	}
+	lt := strings.ToLower(table)
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, ds := range r.datasets {
+		if strings.ToLower(ds.Table) == lt {
+			cp := *ds
+			return &cp
+		}
+	}
+	return nil
+}
+
 // List 列出全部数据集（浅拷贝切片）。
 func (r *Registry) List() []model.Dataset {
 	r.mu.RLock()

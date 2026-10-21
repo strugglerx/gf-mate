@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -34,11 +35,84 @@ type Engine struct {
 	dialectOnce  sync.Once
 	dialectDesc  string // 数据库方言描述（含版本，供 AI 提示词使用）
 	dialectProbe func() (string, error)
+
+	srcMu      sync.RWMutex
+	sources    map[string]gdb.DB    // 命名数据源（key = Dataset.Source）
+	srcDialect map[string]string    // 命名源方言描述缓存（探测一次）
 }
 
 // New 创建查询引擎。
 func New(db gdb.DB, reg *registry.Registry, cfg *Config) *Engine {
-	return &Engine{db: db, registry: reg, cfg: cfg}
+	return &Engine{
+		db:         db,
+		registry:   reg,
+		cfg:        cfg,
+		sources:    make(map[string]gdb.DB),
+		srcDialect: make(map[string]string),
+	}
+}
+
+// AddSource 注册命名数据源（多数据库支持）。
+// name 为逻辑源名，与 Dataset.Source 对应；重复注册返回错误。
+// 数据集声明了 Source 但未注册对应源时，查询会返回明确错误。
+func (e *Engine) AddSource(name string, db gdb.DB) error {
+	if db == nil {
+		return gerror.Newf("数据源注册失败：%q 未传入有效数据库连接", name)
+	}
+	if name == "" {
+		return gerror.New("数据源注册失败：源名称不能为空")
+	}
+	e.srcMu.Lock()
+	defer e.srcMu.Unlock()
+	if _, ok := e.sources[name]; ok {
+		return gerror.Newf("数据源注册失败：%q 已存在，请勿重复注册", name)
+	}
+	e.sources[name] = db
+	return nil
+}
+
+// routeDB 根据已过门禁的 SQL 中引用的业务表路由到对应数据源。
+// 规则：FROM/JOIN 引用的业务表必须全部落在同一数据源（跨源 JOIN 直接拒绝，
+// 错误信息引导 AI 拆成多次单源查询）；只查数据字典视图时路由到默认源。
+func (e *Engine) routeDB(finalSQL string) (gdb.DB, error) {
+	tables, _ := extractTables(finalSQL)
+	srcSet := false
+	src := ""
+	for _, t := range tables {
+		lt := strings.ToLower(t)
+		if metadataViewSet[lt] {
+			continue // 字典视图跟随当前源，不参与路由判定
+		}
+		ds := e.registry.FindByTable(t)
+		if ds == nil {
+			continue // 白名单已在 guardSQL 拦截，这里只做路由
+		}
+		if !srcSet {
+			src, srcSet = ds.Source, true
+		} else if src != ds.Source {
+			return nil, gerror.Newf(
+				"跨数据源查询不支持：表 %q 属于数据源 %q，其他表属于 %q；请拆成多次单源查询，在应用层合并结果",
+				t, sourceLabel(ds.Source), sourceLabel(src))
+		}
+	}
+	e.srcMu.RLock()
+	defer e.srcMu.RUnlock()
+	if db, ok := e.sources[src]; ok {
+		return db, nil
+	}
+	if src == "" {
+		return e.db, nil
+	}
+	return nil, gerror.Newf(
+		"数据集声明了数据源 %q，但该源未注册：请宿主先调用 dq.AddSource(%q, g.DB(%q))", src, src, src)
+}
+
+// sourceLabel 数据源展示名（空源显示为「默认源」）。
+func sourceLabel(src string) string {
+	if src == "" {
+		return "默认源"
+	}
+	return src
 }
 
 // DialectDesc 返回数据库方言描述（如 "达梦 DM8（Oracle 兼容语法）"），
@@ -68,6 +142,51 @@ func (e *Engine) DialectDesc() string {
 		e.dialectDesc = describeDialect(driverType, version)
 	})
 	return e.dialectDesc
+}
+
+// DialectDescAll 返回全部数据源的方言描述（多源时逐个列出，供 AI 提示词）。
+// 单源（未 AddSource）时退化为 DialectDesc。
+func (e *Engine) DialectDescAll() string {
+	e.srcMu.RLock()
+	named := make([]string, 0, len(e.sources))
+	for name := range e.sources {
+		named = append(named, name)
+	}
+	e.srcMu.RUnlock()
+	if len(named) == 0 {
+		return e.DialectDesc()
+	}
+	sort.Strings(named)
+	parts := []string{"默认源：" + e.DialectDesc()}
+	for _, name := range named {
+		e.srcMu.RLock()
+		db := e.sources[name]
+		cached, ok := e.srcDialect[name]
+		e.srcMu.RUnlock()
+		if !ok {
+			cached = probeDialectDesc(db)
+			e.srcMu.Lock()
+			e.srcDialect[name] = cached
+			e.srcMu.Unlock()
+		}
+		parts = append(parts, fmt.Sprintf("数据源 %s：%s", name, cached))
+	}
+	return strings.Join(parts, "；")
+}
+
+// probeDialectDesc 探测单个数据库连接的方言描述（探测失败降级为驱动名）。
+func probeDialectDesc(db gdb.DB) string {
+	driverType := ""
+	if c := db.GetConfig(); c != nil {
+		driverType = strings.ToLower(c.Type)
+	}
+	version := ""
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if v, err := db.GetValue(ctx, "SELECT BANNER FROM V$VERSION"); err == nil {
+		version = v.String()
+	}
+	return describeDialect(driverType, version)
 }
 
 // describeDialect 根据驱动类型 + 版本串生成方言描述与语法要点。
@@ -143,7 +262,12 @@ func (e *Engine) ExecuteSQL(ctx context.Context, sql string) (*model.QueryResult
 	if err != nil {
 		return nil, err
 	}
-	rows, err := e.db.GetAll(ctx, finalSQL)
+	// 多数据源路由：按 SQL 引用的业务表选择对应源（跨源 JOIN 在此拦截）。
+	target, err := e.routeDB(finalSQL)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := target.GetAll(ctx, finalSQL)
 	if err != nil {
 		// DM8 等库的 EXPLAIN 不通过 SQL 结果集返回执行计划，给出明确指引让 AI 自纠。
 		if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(finalSQL)), "EXPLAIN") {
@@ -178,6 +302,15 @@ var metadataViews = []string{
 	"all_indexes", "all_ind_columns", "all_tab_columns", "all_tables",
 	"all_constraints", "all_cons_columns",
 }
+
+// metadataViewSet 字典视图集合（路由判定用）。
+var metadataViewSet = func() map[string]bool {
+	m := make(map[string]bool, len(metadataViews))
+	for _, v := range metadataViews {
+		m[v] = true
+	}
+	return m
+}()
 
 func (e *Engine) ExecuteSQLBatch(ctx context.Context, sqls []string) ([]*model.SQLResult, error) {
 	if len(sqls) == 0 {

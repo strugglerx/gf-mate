@@ -91,7 +91,11 @@ func (a *Assistant) SystemPrompt(ctx context.Context) string {
 	datasets := a.registry.List()
 	overview := ""
 	for _, ds := range datasets {
-		overview += fmt.Sprintf("- 数据集 %s（物理表 %s）：%s\n", ds.Name, ds.Table, ds.Description)
+		src := ""
+		if ds.Source != "" {
+			src = fmt.Sprintf("，数据源 %s", ds.Source)
+		}
+		overview += fmt.Sprintf("- 数据集 %s（物理表 %s%s）：%s\n", ds.Name, ds.Table, src, ds.Description)
 	}
 	sqlRules := a.sqlQueryRules()
 	return fmt.Sprintf(`你是数据查询助手，帮助用户查询和分析业务系统数据。
@@ -149,20 +153,25 @@ func (a *Assistant) sqlQueryRules() string {
 	}
 	var pairs []string
 	for _, ds := range a.registry.List() {
-		pairs = append(pairs, fmt.Sprintf("%s→%s", ds.Name, ds.Table))
+		if ds.Source != "" {
+			pairs = append(pairs, fmt.Sprintf("%s→%s（源 %s）", ds.Name, ds.Table, ds.Source))
+		} else {
+			pairs = append(pairs, fmt.Sprintf("%s→%s", ds.Name, ds.Table))
+		}
 	}
 	return fmt.Sprintf(`
 5. 用 sql_query 工具写只读 SQL 查数（一次尽量把本轮分析需要的查询全部提交，批量效率更高）：
    - 当前数据库：%s
    - 数据集与物理表名对照（SQL 里必须用物理表名，不要用数据集名）：%s
    - 每条只允许 SELECT 或 WITH 开头的单条语句，禁止任何写操作关键字。
+   - 一条 SQL 里不得 JOIN 不同数据源的表（跨源查询会报错），需要跨源数据时拆成多条单源查询，自行在回答里合并。
    - 字段名以 get_schema 返回的真实列名为准。
    - 建议始终自己写 LIMIT，避免结果过大被自动截断。
    - 某条失败时结果里会带 error 字段，根据错误信息修正后重试该条即可。
    - 需要分析索引/性能时，优先查数据字典视图：USER_INDEXES、USER_IND_COLUMNS、USER_TAB_COLUMNS、USER_CONSTRAINTS（已在白名单内，只读元数据）。
    - 也可尝试 EXPLAIN SELECT ...（部分数据库如 DM8 不支持，会报错并提示改查字典视图）。
    - 查 USER_IND_COLUMNS 时用 SELECT *（DM8 驱动会误转义列清单里的 INDEX_NAME 导致报错）。`,
-		a.engine.DialectDesc(), strings.Join(pairs, ", "))
+		a.engine.DialectDescAll(), strings.Join(pairs, ", "))
 }
 
 // Chat 执行一轮对话：工具调用循环直到 LLM 给出最终回答或达到次数上限。

@@ -32,6 +32,7 @@ type EnumItem struct {
 type Dataset struct {
 	Name        string   `json:"name"`  // 对外逻辑名（唯一 key）
 	Table       string   `json:"table"` // 真实表名（sql_query 表白名单来源）
+	Source      string   `json:"source,omitempty"` // 逻辑数据源名（空 = Init 传入的默认源；多库场景配合 dq.AddSource 使用）
 	Label       string   `json:"label"`
 	Description string   `json:"description"`
 	Fields      []Field  `json:"fields"`

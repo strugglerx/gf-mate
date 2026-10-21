@@ -108,6 +108,7 @@ func (inst *dqInstance) initAssistantLocked() error {
 }
 
 // Register 注册数据集（白名单模式的唯一入口）。
+// 多数据源场景：ds.Source 填逻辑源名（对应 AddSource 注册的名称），空 = 默认源。
 // 必须在 Init 之后调用。
 func Register(ds model.Dataset) error {
 	inst, err := getInstance()
@@ -115,6 +116,18 @@ func Register(ds model.Dataset) error {
 		return err
 	}
 	return inst.registry.Register(ds)
+}
+
+// AddSource 注册命名数据源（多数据库支持）。
+// 例如宿主配置了两个库：dq.AddSource("go", g.DB("go"))，
+// 之后 Register 的数据集声明 Source: "go" 即自动路由到该库。
+// 必须在 Init 之后调用；重复注册同名源返回错误。
+func AddSource(name string, db gdb.DB) error {
+	inst, err := getInstance()
+	if err != nil {
+		return err
+	}
+	return inst.engine.AddSource(name, db)
 }
 
 // Inspect 读表结构生成 Dataset 草稿（人再补 Label/Role/Enum）。
