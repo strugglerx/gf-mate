@@ -4,6 +4,13 @@
   <b>简体中文</b> | <a href="README_EN.md">English</a>
 </p>
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/strugglerx/gf-mate.svg)](https://pkg.go.dev/github.com/strugglerx/gf-mate)
+[![Go Report Card](https://goreportcard.com/badge/github.com/strugglerx/gf-mate)](https://goreportcard.com/report/github.com/strugglerx/gf-mate)
+[![Release](https://img.shields.io/github/v/release/strugglerx/gf-mate.svg)](https://github.com/strugglerx/gf-mate/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![GoFrame](https://img.shields.io/badge/Powered%20By-GoFrame v2.10-f36c46.svg)](https://goframe.org)
+[![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go&logoColor=white)](https://go.dev)
+
 给任何 GoFrame v2 项目一键注入**随行智能伙伴**与「自然语言查数 + 数据智能分析」能力。
 自带可嵌入任意前端系统的悬浮陪伴小窗组件，AI 自动根据意图与数据形态选择表格/柱状/折线/饼图/指标卡精准呈现。
 
