@@ -298,10 +298,48 @@ RawSQL: mate.RawSQLConfig{
 
 ## 嵌入前端（任意系统）
 
-### 方式一：script 标签（最简单）
+### 方式一：`<gf-mate>` 自定义标签（Web Component，推荐）
+
+无论在原生 HTML、Vue、React 还是 Angular 中，引入 `dq-widget.js` 后，即可像原生 HTML 标签一样直接声明使用：
 
 ```html
-<!-- 基础用法 -->
+<script src="/mate/dist/dq-widget.js"></script>
+
+<!-- 1. 浮动气泡模式（默认悬浮在右下角） -->
+<gf-mate 
+  base="/mate" 
+  title="业务数据智囊" 
+  color="#4f46e5">
+</gf-mate>
+
+<!-- 2. 页面内嵌模式（Inline，直接作为页面普通块级组件平铺展示） -->
+<div style="width: 480px; height: 600px; border-radius: 12px; overflow: hidden;">
+  <gf-mate 
+    inline 
+    base="/mate" 
+    title="分析工作台" 
+    color="#059669">
+  </gf-mate>
+</div>
+```
+
+`<gf-mate>` 属性一览：
+
+| 属性 | 类型 | 说明 | 示例 |
+|---|---|---|---|
+| `base` / `api` | string | 后端服务基础路径 | `/mate` |
+| `title` | string | 自定义助手名称与欢迎语 | `数据分析专家` |
+| `color` | string | 自定义主题色（支持 HEX / RGB） | `#4f46e5` / `#059669` |
+| `inline` | boolean | **内嵌模式**：开启后取消悬浮球，直接充满父容器作为页面工作台 | `<gf-mate inline>` |
+| `open` | boolean | 页面加载后默认自动展开面板（仅浮动模式有效） | `<gf-mate open>` |
+| `examples` | string | 自定义推荐问题（逗号分隔或 JSON 数组） | `统计今日订单,查询近7天趋势` |
+
+---
+
+### 方式二：script 标签直接引入（极简零侵入）
+
+```html
+<!-- 基础用法：引入即生效，右下角自动生成浮动气泡 -->
 <script src="/mate/dist/dq-widget.js" data-dq-base="/mate"></script>
 
 <!-- 自定义标题与品牌主题色 -->
@@ -321,7 +359,9 @@ RawSQL: mate.RawSQLConfig{
 
 页面右下角出现悬浮气泡，点开即 AI 问答面板。**零样式污染**：面板内容在 Shadow DOM 中，不影响宿主页面样式。
 
-### 方式二：JS API（React / Vue / 原生）
+---
+
+### 方式三：JS API（React / Vue / 原生编程式调用）
 
 ```js
 // React / Vue / 任意框架
@@ -338,13 +378,15 @@ window.DQWidget.close();  // 关闭面板
 window.DQWidget.toggle(); // 切换开合
 ```
 
-### 方式三：iframe（完全隔离）
+### 方式四：iframe（完全沙箱隔离）
 
 ```html
 <iframe src="/mate/widget.html?title=工程助手&color=%23059669" style="position:fixed;right:20px;bottom:20px;width:420px;height:640px;border:none;z-index:9999"></iframe>
 ```
 
-### 方式四：Vue 3 官方推荐高级富渲染组件（@struggler/smart-ai-renderer）
+---
+
+### 方式五：Vue 3 官方推荐高级富渲染组件（@struggler/smart-ai-renderer）
 
 如果您的系统是 **Vue 3 体系**（如后台管理系统、内嵌 BI 看板），需要将 AI 对话与图表卡片**深度无缝嵌入在业务页面内部**，推荐直接使用官方配套的高级富渲染 npm 包：
 

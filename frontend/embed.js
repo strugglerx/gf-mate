@@ -221,7 +221,8 @@
       if (this._inst) { this._inst.destroy(); this._inst = null; }
     };
     try {
-      customElements.define('dq-assistant', DQAssistant);
+      if (!customElements.get('gf-mate')) customElements.define('gf-mate', DQAssistant);
+      if (!customElements.get('dq-assistant')) customElements.define('dq-assistant', DQAssistant);
     } catch (e) { /* 已注册忽略 */ }
   }
 

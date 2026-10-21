@@ -73,9 +73,12 @@ function mount(opts) {
   const examples = opts.examples || scriptExamples || undefined;
 
   // 气泡（挂 light DOM，宿主可 CSS 覆盖定位）。
-  const style = document.createElement('style');
-  style.textContent = BUBBLE_CSS;
-  document.head.appendChild(style);
+  if (!document.getElementById('dq-bubble-style')) {
+    const style = document.createElement('style');
+    style.id = 'dq-bubble-style';
+    style.textContent = BUBBLE_CSS;
+    document.head.appendChild(style);
+  }
 
   const bubble = document.createElement('button');
   bubble.type = 'button';
@@ -105,16 +108,83 @@ function mount(opts) {
     bubble.innerHTML = isOpen ? CLOSE_SVG : BUBBLE_SVG;
   });
 
+  if (opts.open) {
+    panel.classList.add('dq-open');
+    bubble.innerHTML = CLOSE_SVG;
+  }
+
   document.body.append(panel, bubble);
   return {
     open() { panel.classList.add('dq-open'); bubble.innerHTML = CLOSE_SVG; },
     close() { panel.classList.remove('dq-open'); bubble.innerHTML = BUBBLE_SVG; },
     toggle() { bubble.click(); },
+    destroy() {
+      bubble.remove();
+      panel.remove();
+    },
   };
 }
 
-// DOM 就绪后挂载；支持 data-dq-open 立即打开。
+// ---- Web Component 自定义标签：<gf-mate> / <dq-assistant> ----
+class GfMateElement extends HTMLElement {
+  connectedCallback() {
+    if (this._mounted) return;
+    this._mounted = true;
+
+    const base = this.getAttribute('base') || this.getAttribute('api') || scriptBase || undefined;
+    const title = this.getAttribute('title') || scriptTitle || undefined;
+    const color = this.getAttribute('color') || scriptColor || undefined;
+    const examples = this.getAttribute('examples') || scriptExamples || undefined;
+    const isInline = this.hasAttribute('inline') || this.getAttribute('mode') === 'inline';
+
+    if (isInline) {
+      const shadow = this.attachShadow({ mode: 'open' });
+      const shadowStyle = document.createElement('style');
+      shadowStyle.textContent = `:host { display: block; width: 100%; height: 100%; min-height: 420px; overflow: hidden; background: #fff; border-radius: inherit; }\n` + cssText;
+      shadow.appendChild(shadowStyle);
+      const widgetRoot = document.createElement('div');
+      widgetRoot.className = 'dq-widget-root';
+      widgetRoot.style.cssText = 'display:flex;flex-direction:column;height:100%;width:100%;';
+      shadow.appendChild(widgetRoot);
+      this._inst = initWidget(widgetRoot, { base: base ? base.replace(/\/$/, '') : undefined, title, color, examples, inline: true });
+    } else {
+      this._inst = mount({
+        base,
+        title,
+        color,
+        examples,
+        open: this.hasAttribute('open'),
+      });
+    }
+  }
+
+  disconnectedCallback() {
+    if (this._inst && typeof this._inst.destroy === 'function') {
+      this._inst.destroy();
+    }
+    this._mounted = false;
+  }
+
+  open() { if (this._inst && this._inst.open) this._inst.open(); }
+  close() { if (this._inst && this._inst.close) this._inst.close(); }
+  toggle() { if (this._inst && this._inst.toggle) this._inst.toggle(); }
+}
+
+if (typeof customElements !== 'undefined') {
+  if (!customElements.get('gf-mate')) {
+    customElements.define('gf-mate', GfMateElement);
+  }
+  if (!customElements.get('dq-assistant')) {
+    customElements.define('dq-assistant', class extends GfMateElement {});
+  }
+}
+
+// DOM 就绪后挂载；若页面已有 <gf-mate> 或指定 data-dq-auto="false"，由自定义标签接管，不重复创建
 function ready() {
+  if (document.querySelector('gf-mate, dq-assistant') || (scriptEl && scriptEl.dataset.dqAuto === 'false')) {
+    window.DQWidget = { mount };
+    return;
+  }
   const inst = mount();
   if (scriptEl && scriptEl.dataset.dqOpen !== undefined) {
     inst.open();
@@ -124,3 +194,4 @@ function ready() {
 }
 if (document.body) ready();
 else document.addEventListener('DOMContentLoaded', ready);
+

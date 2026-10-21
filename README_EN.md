@@ -241,7 +241,45 @@ Returns standard OpenAI `chat.completion.chunk` events:
 
 ## Frontend Embedding
 
-### Method 1: Script Tag (Recommended)
+### Method 1: `<gf-mate>` Custom Element (Web Component, Recommended)
+
+Import `dq-widget.js` and declare the custom tag in any HTML, Vue, React, or Angular project:
+
+```html
+<script src="/mate/dist/dq-widget.js"></script>
+
+<!-- 1. Floating Bubble Mode (Default bottom-right corner) -->
+<gf-mate 
+  base="/mate" 
+  title="Analytics Copilot" 
+  color="#4f46e5">
+</gf-mate>
+
+<!-- 2. Inline Workspace Mode (Embedded directly inside host layout) -->
+<div style="width: 480px; height: 600px; border-radius: 12px; overflow: hidden;">
+  <gf-mate 
+    inline 
+    base="/mate" 
+    title="Data Workspace" 
+    color="#059669">
+  </gf-mate>
+</div>
+```
+
+`<gf-mate>` Attributes:
+
+| Attribute | Type | Description | Example |
+|---|---|---|---|
+| `base` / `api` | string | Backend service endpoint | `/mate` |
+| `title` | string | Custom assistant title and welcome message | `Analytics Copilot` |
+| `color` | string | Brand primary color (HEX or RGB) | `#4f46e5` / `#059669` |
+| `inline` | boolean | **Inline Mode**: Embeds directly into container, removing floating bubble | `<gf-mate inline>` |
+| `open` | boolean | Opens floating panel on page load (floating mode only) | `<gf-mate open>` |
+| `examples` | string | Suggested query prompts | `Summarize order counts,Show weekly trend` |
+
+---
+
+### Method 2: Script Tag (Zero Configuration)
 
 ```html
 <!-- Basic usage -->
@@ -264,7 +302,9 @@ Returns standard OpenAI `chat.completion.chunk` events:
 
 Zero CSS bleeding: the widget operates inside a Shadow DOM, isolated from host page styles.
 
-### Method 2: JavaScript API (React / Vue / SPA)
+---
+
+### Method 3: JavaScript API (React / Vue / SPA)
 
 ```javascript
 import "/mate/dist/dq-widget.js";
@@ -280,13 +320,17 @@ window.DQWidget.close();  // Close floating panel
 window.DQWidget.toggle(); // Toggle visibility
 ```
 
-### Method 3: Iframe Embedding (Sandbox Isolation)
+---
+
+### Method 4: Iframe Embedding (Sandbox Isolation)
 
 ```html
 <iframe src="/mate/widget.html?title=Analytics&color=%23059669" style="position:fixed;right:20px;bottom:20px;width:420px;height:640px;border:none;z-index:9999"></iframe>
 ```
 
-### Method 4: Official Vue 3 Rich Renderer (@struggler/smart-ai-renderer)
+---
+
+### Method 5: Official Vue 3 Rich Renderer (@struggler/smart-ai-renderer)
 
 If you are developing a **Vue 3 application** (e.g. an admin dashboard or embedded BI portal) and want to embed AI chat and interactive visualization cards **inline within your page**, use the companion rich renderer package:
 

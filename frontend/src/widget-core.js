@@ -89,7 +89,10 @@ export function initWidget(root, opts) {
     input.focus();
   });
 
-  actions.append(newChatBtn, maxBtn, closeBtn);
+  actions.append(newChatBtn);
+  if (!opts.inline) {
+    actions.append(maxBtn, closeBtn);
+  }
   header.append(h1, status, actions);
 
   const messages = document.createElement('div');
