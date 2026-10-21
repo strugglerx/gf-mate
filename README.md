@@ -8,7 +8,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/strugglerx/gf-mate)](https://goreportcard.com/report/github.com/strugglerx/gf-mate)
 [![Release](https://img.shields.io/github/v/release/strugglerx/gf-mate.svg)](https://github.com/strugglerx/gf-mate/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GoFrame](https://img.shields.io/badge/Powered%20By-GoFrame v2.10-f36c46.svg)](https://goframe.org)
+[![GoFrame](https://img.shields.io/badge/Powered%20By-GoFrame%20v2.10-f36c46.svg)](https://goframe.org)
 [![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 
 给任何 GoFrame v2 项目一键注入**随行智能伙伴**与「自然语言查数 + 数据智能分析」能力。
