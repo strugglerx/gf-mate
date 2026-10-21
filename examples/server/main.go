@@ -134,7 +134,7 @@ func main() {
 				APIKey:              llmKey,
 				Model:               envOr("DQ_LLM_MODEL", defaultLLMModel),
 				MaxToolCallsPerTurn: 8,
-				RequestTimeoutSec:   120,
+				RequestTimeoutSec:   300,
 				MaxContextChars:     24000,
 				EnableThinking:      enableThinking,
 				ReasoningEffort:     os.Getenv("DQ_REASONING_EFFORT"),
@@ -148,7 +148,7 @@ func main() {
 		if !useAllMode {
 			if err := dq.Register(projectDataset()); err != nil {
 				glog.Fatalf(ctx, "注册数据集失败：%v", err)
-				}
+			}
 		}
 	}
 
@@ -223,7 +223,7 @@ func multiSourceConfig(llmKey string, enableThinking *bool) *dq.Config {
 			APIKey:              llmKey,
 			Model:               envOr("DQ_LLM_MODEL", defaultLLMModel),
 			MaxToolCallsPerTurn: 8,
-			RequestTimeoutSec:   120,
+			RequestTimeoutSec:   300,
 			MaxContextChars:     24000,
 			EnableThinking:      enableThinking,
 			ReasoningEffort:     os.Getenv("DQ_REASONING_EFFORT"),
@@ -248,9 +248,9 @@ func multiSourceDatasets() []model.Dataset {
 			},
 		},
 		{
-			Name:  "area",
-			Table: "area",
-			Label: "行政区",
+			Name:        "area",
+			Table:       "area",
+			Label:       "行政区",
 			Description: "行政区表（默认源 mqcloud_experts）。name 为区名。",
 			Fields: []model.Field{
 				{Name: "id", Label: "区ID", Role: model.RoleMeasure, Type: "int", Aggs: []string{"count"}},
@@ -289,11 +289,11 @@ func multiSourceDatasets() []model.Dataset {
 			},
 		},
 		{
-			Name:  "sys_user",
-			Table: "common_user",
-			Label: "系统用户",
+			Name:        "sys_user",
+			Table:       "common_user",
+			Label:       "系统用户",
 			Description: "公共系统用户表（go 源 mqcloud_exports_go）。module_id 为模块，user_id 关联默认源的用户。",
-			Source: "go",
+			Source:      "go",
 			Fields: []model.Field{
 				{Name: "id", Label: "记录ID", Role: model.RoleMeasure, Type: "int", Aggs: []string{"count"}},
 				{Name: "module_id", Label: "模块ID", Role: model.RoleDimension, Type: "int"},

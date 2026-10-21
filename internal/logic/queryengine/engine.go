@@ -37,8 +37,8 @@ type Engine struct {
 	dialectProbe func() (string, error)
 
 	srcMu      sync.RWMutex
-	sources    map[string]gdb.DB    // 命名数据源（key = Dataset.Source）
-	srcDialect map[string]string    // 命名源方言描述缓存（探测一次）
+	sources    map[string]gdb.DB // 命名数据源（key = Dataset.Source）
+	srcDialect map[string]string // 命名源方言描述缓存（探测一次）
 }
 
 // New 创建查询引擎。

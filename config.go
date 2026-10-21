@@ -58,7 +58,7 @@ func DefaultConfig() *Config {
 		Assistant: AssistantConfig{
 			Enabled:             false,
 			MaxToolCallsPerTurn: 8,
-			RequestTimeoutSec:   60,
+			RequestTimeoutSec:   180,
 			MaxContextChars:     24000,
 		},
 		RawSQL: RawSQLConfig{
@@ -106,7 +106,7 @@ func (c *Config) normalize() (*Config, error) {
 		cfg.Assistant.MaxToolCallsPerTurn = 8
 	}
 	if cfg.Assistant.RequestTimeoutSec <= 0 {
-		cfg.Assistant.RequestTimeoutSec = 60
+		cfg.Assistant.RequestTimeoutSec = 180
 	}
 	if cfg.Assistant.MaxContextChars <= 0 {
 		cfg.Assistant.MaxContextChars = 24000

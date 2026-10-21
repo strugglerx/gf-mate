@@ -30,8 +30,8 @@ type EnumItem struct {
 
 // Dataset 数据集 = 一张表/视图 + 元数据（表级白名单 + AI 可见的 schema）。
 type Dataset struct {
-	Name        string   `json:"name"`  // 对外逻辑名（唯一 key）
-	Table       string   `json:"table"` // 真实表名（sql_query 表白名单来源）
+	Name        string   `json:"name"`             // 对外逻辑名（唯一 key）
+	Table       string   `json:"table"`            // 真实表名（sql_query 表白名单来源）
 	Source      string   `json:"source,omitempty"` // 逻辑数据源名（空 = Init 传入的默认源；多库场景配合 dq.AddSource 使用）
 	Label       string   `json:"label"`
 	Description string   `json:"description"`

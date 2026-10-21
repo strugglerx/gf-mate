@@ -269,7 +269,7 @@ Assistant: mate.AssistantConfig{
     APIKey:              os.Getenv("DQ_LLM_KEY"), // 密钥永远走环境变量
     Model:               "your-model",
     MaxToolCallsPerTurn: 8,    // 单轮最大工具调用次数
-    RequestTimeoutSec:   60,   // 单次请求超时
+    RequestTimeoutSec:   180,  // 单次请求超时
     MaxContextChars:     24000, // 上下文截断上限
     EnableThinking:      nil,   // 思考模式：nil=默认开启；传 false 关闭
     ReasoningEffort:     "",    // 思考强度：low / high / max（空=模型默认）
@@ -466,7 +466,7 @@ mate.Init(g.DB(), &mate.Config{
 | `Assistant.APIKey` | — | 密钥，**永远从环境变量读取** |
 | `Assistant.Model` | — | 模型名 |
 | `Assistant.MaxToolCallsPerTurn` | `8` | 单轮最大工具调用次数 |
-| `Assistant.RequestTimeoutSec` | `60` | 单次请求超时 |
+| `Assistant.RequestTimeoutSec` | `180` | 单次 LLM 请求超时（长思考/大上下文建议 ≥300） |
 | `Assistant.MaxContextChars` | `24000` | 上下文截断上限 |
 | `Render.EnabledTypes` | 全部 5 种 | 允许的渲染类型 |
 

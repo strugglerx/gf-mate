@@ -113,7 +113,7 @@ type LLMClient struct {
 // NewLLMClient 创建客户端。
 func NewLLMClient(cfg LLMConfig) *LLMClient {
 	if cfg.Timeout == 0 {
-		cfg.Timeout = 120 * time.Second
+		cfg.Timeout = 300 * time.Second
 	}
 	return &LLMClient{cfg: cfg, client: &http.Client{Timeout: cfg.Timeout}}
 }

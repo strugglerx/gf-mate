@@ -73,8 +73,8 @@ func (a *Assistant) ToolDefs() []ToolDefinition {
 					"type": "object",
 					"properties": map[string]interface{}{
 						"sqls": map[string]interface{}{
-							"type": "array",
-							"items": map[string]interface{}{"type": "string"},
+							"type":        "array",
+							"items":       map[string]interface{}{"type": "string"},
 							"description": "只读 SELECT 语句数组（一次尽量把本轮分析需要的查询都提交齐）",
 						},
 					},
