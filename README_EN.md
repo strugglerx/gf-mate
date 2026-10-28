@@ -8,8 +8,8 @@
 [![CI](https://github.com/strugglerx/gf-mate/actions/workflows/ci.yml/badge.svg)](https://github.com/strugglerx/gf-mate/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/strugglerx/gf-mate.svg)](https://github.com/strugglerx/gf-mate/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GoFrame](https://img.shields.io/badge/Powered%20By-GoFrame%20v2.10-f36c46.svg)](https://goframe.org)
-[![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![GoFrame](https://img.shields.io/badge/Powered%20By-GoFrame%20v2.8+-f36c46.svg)](https://goframe.org)
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 
 An intelligent companion and natural language data analysis copilot for any **GoFrame v2** application.
 Features an embeddable floating companion widget for any frontend stack. The AI automatically inspects query intent and result shapes to present tables, bar charts, line charts, pie charts, or metric cards.

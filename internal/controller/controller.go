@@ -31,14 +31,16 @@ import (
 type deps struct {
 	registry *registry.Registry
 	engine   *queryengine.Engine
-	assist   *assistant.Assistant
 	cfg      *Config
 }
 
+// AssistantFunc 按请求取 AI 助手实例与模型名（静态配置直接返回单例，
+// 动态 Resolver 场景每次按最新凭据生成）。返回 error 表示未启用或未配置。
+type AssistantFunc func(ctx context.Context) (*assistant.Assistant, string, error)
+
 // Config 控制器需要的配置子集。
 type Config struct {
-	AssistantEnabled bool
-	AssistantModel   string
+	Assistant AssistantFunc
 	// CORSOrigins 跨域来源白名单。为空时回显任意 Origin（兼容旧行为，
 	// 但会打警告日志）；非空时只回显列表内的 Origin。
 	CORSOrigins []string
@@ -57,11 +59,11 @@ func (d *deps) corsAllowed(origin string) bool {
 }
 
 // Bind 把全部路由挂到 group 上。
-func Bind(ctx context.Context, group *ghttp.RouterGroup, reg *registry.Registry, eng *queryengine.Engine, as *assistant.Assistant, cfg *Config) error {
+func Bind(ctx context.Context, group *ghttp.RouterGroup, reg *registry.Registry, eng *queryengine.Engine, cfg *Config) error {
 	if group == nil {
 		return gerror.New("路由挂载失败：group 不能为 nil")
 	}
-	d := &deps{registry: reg, engine: eng, assist: as, cfg: cfg}
+	d := &deps{registry: reg, engine: eng, cfg: cfg}
 	if cfg == nil {
 		d.cfg = &Config{}
 	}
@@ -174,9 +176,14 @@ func (d *deps) handleGetSchema(r *ghttp.Request) {
 
 // handleChat POST /assistant/chat → SSE 流式对话。
 func (d *deps) handleChat(r *ghttp.Request) {
-	if d.cfg == nil || !d.cfg.AssistantEnabled || d.assist == nil {
+	if d.cfg.Assistant == nil {
 		writeError(r, http.StatusServiceUnavailable,
 			gerror.New("AI 助手未启用：请在插件配置中设置 assistant.enabled=true 并配置环境变量 DQ_LLM_KEY"))
+		return
+	}
+	assist, model, err := d.cfg.Assistant(r.Context())
+	if err != nil {
+		writeError(r, http.StatusServiceUnavailable, err)
 		return
 	}
 	var body struct {
@@ -228,10 +235,6 @@ func (d *deps) handleChat(r *ghttp.Request) {
 	resp.Flush()
 
 	chunkID := fmt.Sprintf("chatcmpl-dq-%d", gtime.Now().UnixNano())
-	model := ""
-	if d.cfg != nil {
-		model = d.cfg.AssistantModel
-	}
 
 	writeChunk := func(delta string, finishReason interface{}) {
 		deltaObj := map[string]interface{}{"content": delta}
@@ -378,7 +381,7 @@ func (d *deps) handleChat(r *ghttp.Request) {
 		}
 	}
 
-	_, _, _ = d.assist.ChatStreamHistory(r.Context(), userMessage, history, emit)
+	_, _, _ = assist.ChatStreamHistory(r.Context(), userMessage, history, emit)
 	// 结束帧：finish_reason + [DONE]（无论成败都发，保证客户端能正常收尾）。
 	writeChunk("", "stop")
 	resp.Write("data: [DONE]\n\n")

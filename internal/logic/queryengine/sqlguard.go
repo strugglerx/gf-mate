@@ -69,6 +69,17 @@ var sqlBlockCommentRe = regexp.MustCompile(`/\*.*?\*/`)
 // 返回的 SQL 文本除追加 LIMIT 外不做任何改写——所有校验都是"拒绝或放行"，不做替换，
 // 避免"改写语义"引入新风险。
 func guardSQL(sql string, allowedTables map[string]bool, maxRows int) (string, error) {
+	return guardSQLWithDeny(sql, allowedTables, nil, maxRows)
+}
+
+// sqlStarRe 匹配投影里的 * / alias.*（SELECT 后或逗号后），不匹配 COUNT(*)。
+var sqlStarRe = regexp.MustCompile(`(?i)(?:\bselect\s+(?:distinct\s+|all\s+)?|,\s*)(?:[A-Za-z_][A-Za-z0-9_$]*\.)?\*`)
+
+// guardSQLWithDeny 在 guardSQL 五道防线之外增加敏感列门禁：
+// denyColumns 为「小写表名 → 小写敏感列集合」。SQL 引用了含敏感列的表时：
+//   - 全文（含字符串字面量，宁可误拒）出现敏感列名即拒绝；
+//   - 投影使用 * 或 alias.* 即拒绝（否则敏感列会随整行带出）。
+func guardSQLWithDeny(sql string, allowedTables map[string]bool, denyColumns map[string]map[string]bool, maxRows int) (string, error) {
 	// 去注释（注释内容整体剔除，不参与后续任何检查）。
 	cleaned := sqlBlockCommentRe.ReplaceAllString(sql, " ")
 	cleaned = sqlLineCommentRe.ReplaceAllString(cleaned, " ")
@@ -114,6 +125,9 @@ func guardSQL(sql string, allowedTables map[string]bool, maxRows int) (string, e
 			return "", gerror.Newf("SQL 校验失败：表 %q 不在白名单内（只能查询已注册数据集对应的表）", t)
 		}
 	}
+	if err := checkDeniedColumns(cleaned, tables, denyColumns); err != nil {
+		return "", err
+	}
 
 	// 5. 行数上限：无顶层 LIMIT 时追加（EXPLAIN 只出执行计划，不追加）。
 	if !isExplain && !hasTopLevelLimit(cleaned) {
@@ -121,6 +135,42 @@ func guardSQL(sql string, allowedTables map[string]bool, maxRows int) (string, e
 	}
 	return cleaned, nil
 }
+
+// checkDeniedColumns 敏感列门禁（只拒绝不改写）。
+func checkDeniedColumns(sql string, tables []string, denyColumns map[string]map[string]bool) error {
+	if len(denyColumns) == 0 {
+		return nil
+	}
+	var sensitiveTable string
+	denied := map[string]bool{}
+	for _, t := range tables {
+		cols := denyColumns[strings.ToLower(t)]
+		if len(cols) == 0 {
+			continue
+		}
+		if sensitiveTable == "" {
+			sensitiveTable = t
+		}
+		for c := range cols {
+			denied[c] = true
+		}
+	}
+	if len(denied) == 0 {
+		return nil
+	}
+	if sqlStarRe.MatchString(sql) {
+		return gerror.Newf("SQL 校验失败：表 %q 含敏感字段，不允许 SELECT * 或 别名.*，请显式列出需要的列", sensitiveTable)
+	}
+	for _, word := range sqlWordRe.FindAllString(sql, -1) {
+		if denied[strings.ToLower(word)] {
+			return gerror.Newf("SQL 校验失败：列 %q 为敏感字段，禁止查询", strings.ToLower(word))
+		}
+	}
+	return nil
+}
+
+// sqlWordRe 提取 SQL 中的全部标识符词（敏感列比对用）。
+var sqlWordRe = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_$]*`)
 
 // extractCTENames 提取 WITH 子句定义的 CTE 名（小写 key 集合）。
 // 覆盖 WITH t AS ( ... 以及递归逗号 , t2 AS ( ...。

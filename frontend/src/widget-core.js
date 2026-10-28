@@ -4,6 +4,18 @@
 //   2. 单文件 bundle 模式（dist/dq-widget.js，Shadow DOM 内）
 // 依赖宿主环境提供：window.renderRenderJSON（render.js）、
 // window.marked / window.DOMPurify（CDN 或 bundle 注入）。
+
+// resolveHeaders 解析宿主注入的请求头：支持对象、返回对象的函数或 Promise。
+// 每次发送前重新求值，宿主 token 续期后无需重新挂载 widget。
+async function resolveHeaders(headers) {
+  try {
+    const value = typeof headers === 'function' ? await headers() : await headers;
+    return value && typeof value === 'object' ? value : {};
+  } catch {
+    return {};
+  }
+}
+
 export function initWidget(root, opts) {
   'use strict';
   opts = opts || {};
@@ -710,10 +722,11 @@ export function initWidget(root, opts) {
     }, 150);
 
     try {
+      const extraHeaders = await resolveHeaders(opts.headers);
       const resp = await fetch(BASE + '/assistant/chat', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: Object.assign({}, extraHeaders, { 'Content-Type': 'application/json' }),
         body: JSON.stringify({ message: text, messages: chatHistory.slice() }),
         signal: currentAbortController.signal,
       });
@@ -721,7 +734,9 @@ export function initWidget(root, opts) {
         let msg = 'HTTP ' + resp.status;
         try {
           const data = await resp.json();
-          if (data && data.error) msg = data.error;
+          // 兼容插件自身 {error} 与宿主统一响应 {code,msg}（如鉴权失败 401/403）。
+          const hostMsg = data && (data.error || data.msg || data.message);
+          if (hostMsg) msg = hostMsg;
         } catch { /* ignore */ }
         throw new Error(msg);
       }

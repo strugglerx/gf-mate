@@ -88,23 +88,54 @@ func Init(db gdb.DB, cfg *Config) error {
 }
 
 // initAssistantLocked 按 cfg.Assistant 初始化 AI 助手（调用方需持有 instanceMu 写锁）。
+// 配置了 Resolver 时不校验静态 APIKey，LLM 客户端在每次对话前按最新凭据生成。
 func (inst *dqInstance) initAssistantLocked() error {
-	if !inst.cfg.Assistant.Enabled {
+	ac := inst.cfg.Assistant
+	if !ac.assistantEnabled() {
 		return nil
 	}
-	if inst.cfg.Assistant.APIKey == "" {
-		return gerror.New("插件初始化失败：assistant.enabled=true 但未配置 APIKey，请通过环境变量 DQ_LLM_KEY 注入")
+	var llm *assistant.LLMClient
+	if ac.Resolver == nil {
+		if ac.APIKey == "" {
+			return gerror.New("插件初始化失败：assistant.enabled=true 但未配置 APIKey，请通过环境变量 DQ_LLM_KEY 注入")
+		}
+		llm = inst.newLLM(LLMEndpoint{BaseURL: ac.BaseURL, APIKey: ac.APIKey, Model: ac.Model})
 	}
-	llm := assistant.NewLLMClient(assistant.LLMConfig{
-		BaseURL:         inst.cfg.Assistant.BaseURL,
-		APIKey:          inst.cfg.Assistant.APIKey,
-		Model:           inst.cfg.Assistant.Model,
-		Timeout:         time.Duration(inst.cfg.Assistant.RequestTimeoutSec) * time.Second,
-		EnableThinking:  inst.cfg.Assistant.EnableThinking,
-		ReasoningEffort: inst.cfg.Assistant.ReasoningEffort,
-	})
-	inst.assistant = assistant.New(llm, inst.engine, inst.registry, inst.cfg.Assistant.MaxToolCallsPerTurn).SetRawSQL(inst.cfg.RawSQL.Enabled != nil && *inst.cfg.RawSQL.Enabled)
+	inst.assistant = assistant.New(llm, inst.engine, inst.registry, ac.MaxToolCallsPerTurn).SetRawSQL(inst.cfg.RawSQL.Enabled != nil && *inst.cfg.RawSQL.Enabled)
 	return nil
+}
+
+// newLLM 按端点与全局思考/超时配置创建 LLM 客户端。
+func (inst *dqInstance) newLLM(ep LLMEndpoint) *assistant.LLMClient {
+	ac := inst.cfg.Assistant
+	return assistant.NewLLMClient(assistant.LLMConfig{
+		BaseURL:         ep.BaseURL,
+		APIKey:          ep.APIKey,
+		Model:           ep.Model,
+		Timeout:         time.Duration(ac.RequestTimeoutSec) * time.Second,
+		EnableThinking:  ac.EnableThinking,
+		ReasoningEffort: ac.ReasoningEffort,
+	})
+}
+
+// assistantFor 返回本次对话使用的助手与模型名。
+// 静态配置返回单例；配置了 Resolver 时每次解析最新端点（后台改凭据即时生效）。
+func (inst *dqInstance) assistantFor(ctx context.Context) (*assistant.Assistant, string, error) {
+	if inst.assistant == nil {
+		return nil, "", gerror.New("AI 助手未启用：请在插件配置中设置 assistant.enabled=true 并配置环境变量 DQ_LLM_KEY")
+	}
+	ac := inst.cfg.Assistant
+	if ac.Resolver == nil {
+		return inst.assistant, ac.Model, nil
+	}
+	ep, err := ac.Resolver(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	if strings.TrimSpace(ep.BaseURL) == "" || strings.TrimSpace(ep.APIKey) == "" {
+		return nil, "", gerror.New("AI 助手未配置：LLM 端点或密钥为空")
+	}
+	return inst.assistant.WithLLM(inst.newLLM(ep)), ep.Model, nil
 }
 
 // Register 注册数据集（白名单模式的唯一入口）。
@@ -203,11 +234,11 @@ func Bind(ctx context.Context, group *ghttp.RouterGroup, server ...*ghttp.Server
 	if err != nil {
 		return err
 	}
-	if err := controller.Bind(ctx, group, inst.registry, inst.engine, inst.assistant, &controller.Config{
-		AssistantEnabled: inst.cfg.Assistant.Enabled,
-		AssistantModel:   inst.cfg.Assistant.Model,
-		CORSOrigins:      inst.cfg.CORSOrigins,
-	}); err != nil {
+	cfg := &controller.Config{CORSOrigins: inst.cfg.CORSOrigins}
+	if inst.cfg.Assistant.assistantEnabled() {
+		cfg.Assistant = inst.assistantFor
+	}
+	if err := controller.Bind(ctx, group, inst.registry, inst.engine, cfg); err != nil {
 		return err
 	}
 	if len(server) > 0 && server[0] != nil {

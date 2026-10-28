@@ -29,6 +29,14 @@ func New(llm *LLMClient, engine *queryengine.Engine, reg *registry.Registry, max
 	return &Assistant{llm: llm, engine: engine, registry: reg, maxToolCalls: maxToolCalls}
 }
 
+// WithLLM 返回换用指定 LLM 客户端的浅拷贝（动态 Resolver 场景按请求生成，
+// 引擎与注册表仍共享，不影响原实例）。
+func (a *Assistant) WithLLM(llm *LLMClient) *Assistant {
+	clone := *a
+	clone.llm = llm
+	return &clone
+}
+
 // SetRawSQL 开启/关闭原生 SQL 工具（由 dq.Init 按配置注入）。
 func (a *Assistant) SetRawSQL(enabled bool) *Assistant {
 	a.rawSQL = enabled
@@ -152,12 +160,20 @@ func (a *Assistant) sqlQueryRules() string {
 		return ""
 	}
 	var pairs []string
+	var denyNotes []string
 	for _, ds := range a.registry.List() {
 		if ds.Source != "" {
 			pairs = append(pairs, fmt.Sprintf("%s→%s（源 %s）", ds.Name, ds.Table, ds.Source))
 		} else {
 			pairs = append(pairs, fmt.Sprintf("%s→%s", ds.Name, ds.Table))
 		}
+		if len(ds.DenyColumns) > 0 {
+			denyNotes = append(denyNotes, fmt.Sprintf("%s（%s）", ds.Table, strings.Join(ds.DenyColumns, "、")))
+		}
+	}
+	denyRule := ""
+	if len(denyNotes) > 0 {
+		denyRule = "\n   - 以下表含敏感字段，禁止查询这些列，且不得对这些表 SELECT * / 别名.*，必须显式列出列名：" + strings.Join(denyNotes, "；")
 	}
 	return fmt.Sprintf(`
 5. 用 sql_query 工具写只读 SQL 查数（一次尽量把本轮分析需要的查询全部提交，批量效率更高）：
@@ -170,8 +186,8 @@ func (a *Assistant) sqlQueryRules() string {
    - 某条失败时结果里会带 error 字段，根据错误信息修正后重试该条即可。
    - 需要分析索引/性能时，优先查数据字典视图：USER_INDEXES、USER_IND_COLUMNS、USER_TAB_COLUMNS、USER_CONSTRAINTS（已在白名单内，只读元数据）。
    - 也可尝试 EXPLAIN SELECT ...（部分数据库如 DM8 不支持，会报错并提示改查字典视图）。
-   - 查 USER_IND_COLUMNS 时用 SELECT *（DM8 驱动会误转义列清单里的 INDEX_NAME 导致报错）。`,
-		a.engine.DialectDescAll(), strings.Join(pairs, ", "))
+   - 查 USER_IND_COLUMNS 时用 SELECT *（DM8 驱动会误转义列清单里的 INDEX_NAME 导致报错）。%s`,
+		a.engine.DialectDescAll(), strings.Join(pairs, ", "), denyRule)
 }
 
 // Chat 执行一轮对话：工具调用循环直到 LLM 给出最终回答或达到次数上限。

@@ -1,6 +1,8 @@
 package dq
 
 import (
+	"context"
+
 	"github.com/gogf/gf/v2/errors/gerror"
 )
 
@@ -21,6 +23,25 @@ type AssistantConfig struct {
 	MaxContextChars     int    `json:"maxContextChars"`
 	EnableThinking      *bool  `json:"enableThinking,omitempty"`  // 是否开启深度思考（默认开启）
 	ReasoningEffort     string `json:"reasoningEffort,omitempty"` // 思考强度：low / high / max
+
+	// Resolver 每次对话前动态解析 LLM 端点（宿主从后台配置中心读取凭据时使用，
+	// 改配置无需重启）。非 nil 时视为已启用，并优先于 BaseURL/APIKey/Model 静态配置；
+	// 返回 error 时对话接口返回 503，错误文案原样透出（宿主应保证文案不含密钥）。
+	Resolver func(ctx context.Context) (LLMEndpoint, error) `json:"-"`
+}
+
+// LLMEndpoint 动态解析出的 OpenAI 兼容端点。
+// BaseURL 可以是根路径（如 https://api.deepseek.com/v1，自动拼 /chat/completions），
+// 也可以是以 /chat/completions 结尾的完整地址（原样使用）。
+type LLMEndpoint struct {
+	BaseURL string
+	APIKey  string
+	Model   string
+}
+
+// assistantEnabled 是否启用 AI 助手：显式 Enabled 或配置了动态 Resolver。
+func (a AssistantConfig) assistantEnabled() bool {
+	return a.Enabled || a.Resolver != nil
 }
 
 // RenderConfig 渲染模板配置。
@@ -34,8 +55,8 @@ type RenderConfig struct {
 // 注意：此模式绕过 RowScope 行级权限与字段白名单，仅建议可信内网环境开启。
 type RawSQLConfig struct {
 	Enabled    *bool `json:"enabled,omitempty"` // nil = 默认开启；显式 false 才关闭
-	MaxRows    int  `json:"maxRows"`    // 强制行数上限，默认 500
-	TimeoutSec int  `json:"timeoutSec"` // 单条 SQL 超时（秒），默认 30
+	MaxRows    int   `json:"maxRows"`           // 强制行数上限，默认 500
+	TimeoutSec int   `json:"timeoutSec"`        // 单条 SQL 超时（秒），默认 30
 }
 
 // Config 插件配置。
@@ -54,7 +75,7 @@ type Config struct {
 // DefaultConfig 返回默认配置。
 func DefaultConfig() *Config {
 	return &Config{
-		Mode:         DefaultMode,
+		Mode: DefaultMode,
 		Assistant: AssistantConfig{
 			Enabled:             false,
 			MaxToolCallsPerTurn: 8,

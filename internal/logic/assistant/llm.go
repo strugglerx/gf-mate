@@ -118,6 +118,16 @@ func NewLLMClient(cfg LLMConfig) *LLMClient {
 	return &LLMClient{cfg: cfg, client: &http.Client{Timeout: cfg.Timeout}}
 }
 
+// chatURL 返回 chat completions 地址：BaseURL 已以 /chat/completions 结尾时原样使用，
+// 否则拼接该路径（兼容宿主配置中心存完整地址的习惯）。
+func (c *LLMClient) chatURL() string {
+	base := strings.TrimRight(strings.TrimSpace(c.cfg.BaseURL), "/")
+	if strings.HasSuffix(base, "/chat/completions") {
+		return base
+	}
+	return base + "/chat/completions"
+}
+
 // buildChatRequest 构造请求体并装配思考模式参数。
 func (c *LLMClient) buildChatRequest(messages []Message, tools []ToolDefinition, stream bool) chatRequest {
 	req := chatRequest{
@@ -152,7 +162,7 @@ func (c *LLMClient) Chat(ctx context.Context, messages []Message, tools []ToolDe
 	if err != nil {
 		return nil, fmt.Errorf("序列化请求失败：%w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.BaseURL+"/chat/completions", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.chatURL(), bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("构造请求失败：%w", err)
 	}
@@ -196,7 +206,7 @@ func (c *LLMClient) ChatStream(ctx context.Context, messages []Message, tools []
 	if err != nil {
 		return nil, "", fmt.Errorf("序列化请求失败：%w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.BaseURL+"/chat/completions", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.chatURL(), bytes.NewReader(body))
 	if err != nil {
 		return nil, "", fmt.Errorf("构造请求失败：%w", err)
 	}

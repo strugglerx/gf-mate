@@ -42,22 +42,35 @@ func FromStruct(s interface{}, opts ...func(*FromStructOptions)) (*Dataset, erro
 		Description: o.Description,
 		Fields:      make([]Field, 0, rt.NumField()),
 		Tags:        o.Tags,
+		DenyColumns: o.DenyColumns,
+	}
+	denied := make(map[string]bool, len(o.DenyColumns))
+	for _, c := range o.DenyColumns {
+		denied[strings.ToLower(strings.TrimSpace(c))] = true
 	}
 	if ds.Name == "" {
 		// 默认逻辑名：取 struct 类型名转 snake_case。
 		ds.Name = toSnake(stripTypePrefix(rt.Name()))
 	}
 	if ds.Table == "" {
-		ds.Table = o.TableFallback(rt.Name())
+		if o.TableFallback != nil {
+			ds.Table = o.TableFallback(rt.Name())
+		} else {
+			ds.Table = toSnake(rt.Name())
+		}
 	}
 	if ds.Label == "" {
-		ds.Label = o.LabelFallback(rt.Name())
+		if o.LabelFallback != nil {
+			ds.Label = o.LabelFallback(rt.Name())
+		} else {
+			ds.Label = rt.Name()
+		}
 	}
 
 	for i := 0; i < rt.NumField(); i++ {
 		sf := rt.Field(i)
 		f, ok := fieldFromTag(sf, o)
-		if ok {
+		if ok && !denied[strings.ToLower(f.Name)] {
 			ds.Fields = append(ds.Fields, f)
 		}
 	}
@@ -76,6 +89,8 @@ type FromStructOptions struct {
 	Label       string   // 中文名
 	Description string   // 数据集描述（给 AI）
 	Tags        []string // 标签
+	// DenyColumns 敏感列（真实列名）：不进 Fields，并写入 Dataset.DenyColumns 由 SQL 门禁拦截。
+	DenyColumns []string
 
 	// 默认表名/标签的 fallback 钩子（自定义时覆盖默认推断）。
 	TableFallback func(typeName string) string

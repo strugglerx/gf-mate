@@ -101,7 +101,8 @@ function mount(opts) {
   widgetRoot.style.cssText = 'display:flex;flex-direction:column;height:100%;';
   shadow.appendChild(widgetRoot);
 
-  initWidget(widgetRoot, { base: base || undefined, title, color, examples });
+  // headers：对象 / 函数 / Promise，每次请求前求值（宿主 Bearer token 鉴权用）。
+  initWidget(widgetRoot, { base: base || undefined, title, color, examples, headers: opts.headers });
 
   bubble.addEventListener('click', () => {
     const isOpen = panel.classList.toggle('dq-open');
@@ -146,7 +147,7 @@ class GfMateElement extends HTMLElement {
       widgetRoot.className = 'dq-widget-root';
       widgetRoot.style.cssText = 'display:flex;flex-direction:column;height:100%;width:100%;';
       shadow.appendChild(widgetRoot);
-      this._inst = initWidget(widgetRoot, { base: base ? base.replace(/\/$/, '') : undefined, title, color, examples, inline: true });
+      this._inst = initWidget(widgetRoot, { base: base ? base.replace(/\/$/, '') : undefined, title, color, examples, inline: true, headers: () => this._headerValue() });
     } else {
       this._inst = mount({
         base,
@@ -154,8 +155,18 @@ class GfMateElement extends HTMLElement {
         color,
         examples,
         open: this.hasAttribute('open'),
+        headers: () => this._headerValue(),
       });
     }
+  }
+
+  // headers 属性（DOM property，非 attribute）：Vue 用 :headers.prop / React 用 ref 赋值，
+  // 可传对象或函数；每次请求前读取最新值，赋值时机早于或晚于挂载都生效。
+  get headers() { return this._headers; }
+  set headers(value) { this._headers = value; }
+
+  _headerValue() {
+    return typeof this._headers === 'function' ? this._headers() : this._headers;
   }
 
   disconnectedCallback() {

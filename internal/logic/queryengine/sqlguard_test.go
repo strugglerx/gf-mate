@@ -200,3 +200,37 @@ func TestGuardSQLExplain(t *testing.T) {
 		t.Fatalf("EXPLAIN with CTE should pass: %v", err)
 	}
 }
+
+// 敏感列门禁：miniapp_project.client_phone 禁止读取。
+var guardDeny = map[string]map[string]bool{
+	"miniapp_project": {"client_phone": true},
+}
+
+func TestGuardSQLDenyColumnsAllowsSafeQuery(t *testing.T) {
+	for _, sql := range []string{
+		"SELECT status, COUNT(*) FROM miniapp_project GROUP BY status",
+		"SELECT * FROM miniapp_contractor", // 不含敏感列的表允许 *
+		"SELECT p.name, c.name FROM miniapp_project p JOIN miniapp_contractor c ON p.contractor_id = c.id",
+	} {
+		if _, err := guardSQLWithDeny(sql, guardTables, guardDeny, 500); err != nil {
+			t.Errorf("safe query rejected: %q: %v", sql, err)
+		}
+	}
+}
+
+func TestGuardSQLDenyColumnsRejects(t *testing.T) {
+	for _, sql := range []string{
+		"SELECT client_phone FROM miniapp_project",
+		`SELECT "CLIENT_PHONE" FROM miniapp_project`,
+		"SELECT name FROM miniapp_project WHERE client_phone LIKE '138%'",
+		"SELECT * FROM miniapp_project",
+		"SELECT p.* FROM miniapp_project p",
+		"SELECT DISTINCT name, * FROM miniapp_project",
+		"WITH t AS (SELECT * FROM miniapp_project) SELECT name FROM t",
+		"SELECT c.name, p.* FROM miniapp_contractor c JOIN miniapp_project p ON p.contractor_id = c.id",
+	} {
+		if _, err := guardSQLWithDeny(sql, guardTables, guardDeny, 500); err == nil {
+			t.Errorf("sensitive query should be rejected: %q", sql)
+		}
+	}
+}

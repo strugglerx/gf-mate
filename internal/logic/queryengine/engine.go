@@ -251,14 +251,26 @@ func (e *Engine) ExecuteSQL(ctx context.Context, sql string) (*model.QueryResult
 	defer cancel()
 	// 表白名单：全部已注册数据集的表名（小写）。
 	allowed := make(map[string]bool)
+	// 敏感列：表名 → 列集合（小写），由 Dataset.DenyColumns 声明。
+	deny := make(map[string]map[string]bool)
 	for _, ds := range e.registry.List() {
-		allowed[strings.ToLower(ds.Table)] = true
+		table := strings.ToLower(ds.Table)
+		allowed[table] = true
+		for _, c := range ds.DenyColumns {
+			if c = strings.ToLower(strings.TrimSpace(c)); c == "" {
+				continue
+			}
+			if deny[table] == nil {
+				deny[table] = make(map[string]bool)
+			}
+			deny[table][c] = true
+		}
 	}
 	// 只读数据字典视图（索引/列/约束元数据），供 AI 做索引与性能分析。
 	for _, v := range metadataViews {
 		allowed[v] = true
 	}
-	finalSQL, err := guardSQL(sql, allowed, maxRows)
+	finalSQL, err := guardSQLWithDeny(sql, allowed, deny, maxRows)
 	if err != nil {
 		return nil, err
 	}

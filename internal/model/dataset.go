@@ -38,6 +38,9 @@ type Dataset struct {
 	Fields      []Field  `json:"fields"`
 	DefaultSort string   `json:"defaultSort,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
+	// DenyColumns 禁止 AI 读取的列（手机号、证件号等敏感字段）。sql_query 门禁拒绝
+	// 任何提及这些列名的 SQL，并拒绝对该表 SELECT * / alias.*；Fields 中也不会出现。
+	DenyColumns []string `json:"denyColumns,omitempty"`
 }
 
 // QueryResult 查询结果。

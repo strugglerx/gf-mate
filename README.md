@@ -8,8 +8,8 @@
 [![CI](https://github.com/strugglerx/gf-mate/actions/workflows/ci.yml/badge.svg)](https://github.com/strugglerx/gf-mate/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/strugglerx/gf-mate.svg)](https://github.com/strugglerx/gf-mate/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GoFrame](https://img.shields.io/badge/Powered%20By-GoFrame%20v2.10-f36c46.svg)](https://goframe.org)
-[![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![GoFrame](https://img.shields.io/badge/Powered%20By-GoFrame%20v2.8+-f36c46.svg)](https://goframe.org)
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 
 给任何 GoFrame v2 项目一键注入**随行智能伙伴**与「自然语言查数 + 数据智能分析」能力。
 自带可嵌入任意前端系统的悬浮陪伴小窗组件，AI 自动根据意图与数据形态选择表格/柱状/折线/饼图/指标卡精准呈现。
@@ -468,7 +468,45 @@ mate.Init(g.DB(), &mate.Config{
 | `Assistant.MaxToolCallsPerTurn` | `8` | 单轮最大工具调用次数 |
 | `Assistant.RequestTimeoutSec` | `180` | 单次 LLM 请求超时（长思考/大上下文建议 ≥300） |
 | `Assistant.MaxContextChars` | `24000` | 上下文截断上限 |
+| `Assistant.Resolver` | `nil` | 动态 LLM 端点：每次对话前调用，返回 `mate.LLMEndpoint{BaseURL,APIKey,Model}`；非 nil 即视为启用，优先于静态配置。返回 error 时对话接口 503 |
 | `Render.EnabledTypes` | 全部 5 种 | 允许的渲染类型 |
+
+### 宿主集成要点（v0.5.0+）
+
+**动态凭据（后台配置中心）**：宿主有自己的配置中心时用 `Resolver`，改配置无需重启：
+
+```go
+Assistant: mate.AssistantConfig{
+    Resolver: func(ctx context.Context) (mate.LLMEndpoint, error) {
+        // 从宿主配置中心读取；BaseURL 可为根路径或完整的 .../chat/completions
+        return mate.LLMEndpoint{BaseURL: url, APIKey: key, Model: model}, nil
+    },
+},
+```
+
+**敏感列**：手机号、证件号等列用 `DenyColumns` 声明，SQL 门禁拒绝任何提及这些列的语句，并拒绝对该表 `SELECT *` / `alias.*`：
+
+```go
+ds, _ := mate.FromStruct(&entity.Project{}, func(o *mate.FromStructOptions) {
+    o.DenyColumns = []string{"client_phone", "id_card_no"}
+})
+```
+
+**Bearer Token 鉴权**：`mate.Bind` 挂到宿主鉴权分组，脚本用 `mate.BindWidget` 挂到公开分组（`<script>` 带不了请求头，脚本已 `go:embed` 进二进制）：
+
+```go
+s.Group("/api/admin/mate", func(g *ghttp.RouterGroup) { mate.BindWidget(g) })                  // 公开：/dist/dq-widget.js
+s.Group("/api/admin/mate", func(g *ghttp.RouterGroup) { g.Middleware(auth); mate.Bind(ctx, g) }) // 鉴权
+```
+
+前端给 `<gf-mate>` 的 `headers` 属性传对象或函数，每次请求前求值（Token 续期后自动生效）：
+
+```js
+const el = document.createElement("gf-mate")
+el.setAttribute("base", "/api/admin/mate")
+el.headers = () => ({ Authorization: `Bearer ${getToken()}` })
+document.body.appendChild(el)
+```
 
 ---
 
