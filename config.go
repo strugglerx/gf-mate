@@ -24,6 +24,10 @@ type AssistantConfig struct {
 	EnableThinking      *bool  `json:"enableThinking,omitempty"`  // 是否开启深度思考（默认开启）
 	ReasoningEffort     string `json:"reasoningEffort,omitempty"` // 思考强度：low / high / max
 
+	// SystemPromptAppend 宿主自定义提示词，拼到内置 system prompt 末尾。
+	// 用于声明方言语法、业务口径、字段约定等，减少模型试错、提升响应速度。
+	SystemPromptAppend string `json:"systemPromptAppend,omitempty"`
+
 	// Resolver 每次对话前动态解析 LLM 端点（宿主从后台配置中心读取凭据时使用，
 	// 改配置无需重启）。非 nil 时视为已启用，并优先于 BaseURL/APIKey/Model 静态配置；
 	// 返回 error 时对话接口返回 503，错误文案原样透出（宿主应保证文案不含密钥）。

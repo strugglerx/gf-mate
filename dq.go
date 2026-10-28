@@ -101,7 +101,9 @@ func (inst *dqInstance) initAssistantLocked() error {
 		}
 		llm = inst.newLLM(LLMEndpoint{BaseURL: ac.BaseURL, APIKey: ac.APIKey, Model: ac.Model})
 	}
-	inst.assistant = assistant.New(llm, inst.engine, inst.registry, ac.MaxToolCallsPerTurn).SetRawSQL(inst.cfg.RawSQL.Enabled != nil && *inst.cfg.RawSQL.Enabled)
+	inst.assistant = assistant.New(llm, inst.engine, inst.registry, ac.MaxToolCallsPerTurn).
+		SetRawSQL(inst.cfg.RawSQL.Enabled != nil && *inst.cfg.RawSQL.Enabled).
+		SetSystemPromptAppend(ac.SystemPromptAppend)
 	return nil
 }
 

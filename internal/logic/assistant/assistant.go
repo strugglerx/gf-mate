@@ -17,8 +17,16 @@ type Assistant struct {
 	llm          *LLMClient
 	engine       *queryengine.Engine
 	registry     *registry.Registry
-	maxToolCalls int  // 单轮最大工具调用次数（防失控）
-	rawSQL       bool // 原生 SQL 模式开关（sql_query 工具是否可用）
+	maxToolCalls int    // 单轮最大工具调用次数（防失控）
+	rawSQL       bool   // 原生 SQL 模式开关（sql_query 工具是否可用）
+	promptAppend string // 宿主追加的 system prompt（方言约定、业务口径等）
+}
+
+// SetSystemPromptAppend 设置宿主自定义提示词，拼到内置 system prompt 末尾。
+// 用于告知方言语法、业务口径等插件无法预知的约定，减少模型试错。
+func (a *Assistant) SetSystemPromptAppend(text string) *Assistant {
+	a.promptAppend = strings.TrimSpace(text)
+	return a
 }
 
 // New 创建助手。maxToolCalls <= 0 时默认 8。
@@ -106,6 +114,10 @@ func (a *Assistant) SystemPrompt(ctx context.Context) string {
 		overview += fmt.Sprintf("- 数据集 %s（物理表 %s%s）：%s\n", ds.Name, ds.Table, src, ds.Description)
 	}
 	sqlRules := a.sqlQueryRules()
+	append := ""
+	if a.promptAppend != "" {
+		append = "\n\n【宿主补充约定（优先遵守）】\n" + a.promptAppend
+	}
 	return fmt.Sprintf(`你是数据查询助手，帮助用户查询和分析业务系统数据。
 
 【可用数据集】
@@ -129,7 +141,7 @@ func (a *Assistant) SystemPrompt(ctx context.Context) string {
 - 占比构成（部分占整体、百分比分布） → chart_pie：{"type":"chart_pie","title":"标题","name_field":"名称字段","value_field":"数值字段","data":[...]}
 - 明细清单（用户要看具体项目/记录） → data_table：{"type":"data_table","title":"标题","columns":[{"field":"字段","label":"列名"}],"rows":[...]}
 - 卡片内字段名用英文原字段名（与 query 结果 rows 一致），title/label 用中文。
-- data 数组直接用 query 结果的 rows（字段名保持小写）。`, overview, sqlRules)
+- data 数组直接用 query 结果的 rows（字段名保持小写）。%s`, overview, sqlRules, append)
 }
 
 // maxHistoryMessages 单轮携带的最大历史消息条数（超出取最新 N 条）。

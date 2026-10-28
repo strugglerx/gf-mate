@@ -469,6 +469,7 @@ mate.Init(g.DB(), &mate.Config{
 | `Assistant.RequestTimeoutSec` | `180` | 单次 LLM 请求超时（长思考/大上下文建议 ≥300） |
 | `Assistant.MaxContextChars` | `24000` | 上下文截断上限 |
 | `Assistant.Resolver` | `nil` | 动态 LLM 端点：每次对话前调用，返回 `mate.LLMEndpoint{BaseURL,APIKey,Model}`；非 nil 即视为启用，优先于静态配置。返回 error 时对话接口 503 |
+| `Assistant.SystemPromptAppend` | `""` | 宿主自定义提示词，拼到内置 system prompt 末尾。用于声明方言语法（如 DM8 的 `TO_CHAR`/`SYSDATE`）、业务口径、字段约定，减少模型试错、加快响应 |
 | `Render.EnabledTypes` | 全部 5 种 | 允许的渲染类型 |
 
 ### 宿主集成要点（v0.5.0+）
@@ -498,6 +499,17 @@ ds, _ := mate.FromStruct(&entity.Project{}, func(o *mate.FromStructOptions) {
 s.Group("/api/admin/mate", func(g *ghttp.RouterGroup) { mate.BindWidget(g) })                  // 公开：/dist/dq-widget.js
 s.Group("/api/admin/mate", func(g *ghttp.RouterGroup) { g.Middleware(auth); mate.Bind(ctx, g) }) // 鉴权
 ```
+
+**自定义提示词**：宿主库有方言或业务口径时，用 `SystemPromptAppend` 一次性告知，避免模型反复试错：
+
+```go
+Assistant: mate.AssistantConfig{
+    SystemPromptAppend: "数据库为达梦 DM8：按天分组用 TO_CHAR(col,'YYYY-MM-DD')，" +
+        "近 N 天过滤用 col >= SYSDATE - N；created_at 为记录创建时间。",
+},
+```
+
+**浮动面板可缩放**：浮动气泡模式下，面板左上角有拖拽手柄，可自由调整宽高（受最小 320×360 约束）。
 
 前端给 `<gf-mate>` 的 `headers` 属性传对象或函数，每次请求前求值（Token 续期后自动生效）：
 

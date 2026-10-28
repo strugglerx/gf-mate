@@ -38,6 +38,7 @@ const BUBBLE_CSS = `
 }
 .dq-panel {
   position: fixed; bottom: 86px; right: 24px; width: 400px; height: 580px;
+  min-width: 320px; min-height: 360px;
   max-width: calc(100vw - 32px); max-height: calc(100vh - 110px);
   border-radius: 16px;
   box-shadow: 0 24px 60px -12px rgba(15, 23, 42, 0.2), 0 0 0 1px rgba(15, 23, 42, 0.06);
@@ -45,6 +46,17 @@ const BUBBLE_CSS = `
   overflow: hidden; z-index: 2147483000; display: none; flex-direction: column;
   background: #ffffff;
   transform-origin: bottom right;
+}
+/* 左上角拖拽手柄：面板锚定右下角，向左上扩展更符合直觉 */
+.dq-panel-resizer {
+  position: absolute; top: 0; left: 0; width: 16px; height: 16px;
+  cursor: nwse-resize; z-index: 2147483001;
+}
+.dq-panel-resizer::before {
+  content: ""; position: absolute; top: 5px; left: 5px; width: 7px; height: 7px;
+  border-top: 2px solid rgba(100, 116, 139, 0.55);
+  border-left: 2px solid rgba(100, 116, 139, 0.55);
+  border-top-left-radius: 2px;
 }
 .dq-panel.dq-open {
   display: flex;
@@ -64,6 +76,37 @@ const scriptBase = (scriptEl && scriptEl.dataset.dqBase || '').replace(/\/$/, ''
 const scriptTitle = scriptEl && scriptEl.dataset.dqTitle || undefined;
 const scriptColor = scriptEl && scriptEl.dataset.dqColor || undefined;
 const scriptExamples = scriptEl && scriptEl.dataset.dqExamples || undefined;
+
+// attachResizer 给浮动面板加左上角拖拽缩放手柄。面板锚定右下角（right/bottom 固定），
+// 所以向左上拖拽时以鼠标位移反向增减宽高，受 min/max 尺寸约束。手柄在 light DOM，
+// 不进 Shadow DOM，避免与 widget 内部事件冲突。
+function attachResizer(panel) {
+  const resizer = document.createElement('div');
+  resizer.className = 'dq-panel-resizer';
+  panel.appendChild(resizer);
+  resizer.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const rect = panel.getBoundingClientRect();
+    const startW = rect.width;
+    const startH = rect.height;
+    resizer.setPointerCapture(e.pointerId);
+    const onMove = (ev) => {
+      // 向左拖（clientX 变小）增宽，向上拖（clientY 变小）增高。
+      panel.style.width = (startW + (startX - ev.clientX)) + 'px';
+      panel.style.height = (startH + (startY - ev.clientY)) + 'px';
+    };
+    const onUp = (ev) => {
+      resizer.releasePointerCapture(ev.pointerId);
+      resizer.removeEventListener('pointermove', onMove);
+      resizer.removeEventListener('pointerup', onUp);
+    };
+    resizer.addEventListener('pointermove', onMove);
+    resizer.addEventListener('pointerup', onUp);
+  });
+}
 
 function mount(opts) {
   opts = opts || {};
@@ -92,6 +135,7 @@ function mount(opts) {
   // 面板：Shadow DOM 隔离样式（不污染宿主，也不被宿主污染）。
   const panel = document.createElement('div');
   panel.className = 'dq-panel';
+  attachResizer(panel);
   const shadow = panel.attachShadow({ mode: 'open' });
   const shadowStyle = document.createElement('style');
   shadowStyle.textContent = cssText;
