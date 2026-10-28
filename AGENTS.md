@@ -12,6 +12,7 @@ GoFrame v2 单包插件（`github.com/strugglerx/gf-mate`）：给任何业务�
 ```
 gf-mate/
 ├── dq.go / config.go        # 对外门面（Init/Register/Bind）与配置
+├── assets.go                # go:embed 内嵌 frontend/dist/dq-widget.js 与 BindWidget
 ├── internal/
 │   ├── controller/          # HTTP 层（SSE 编排、CORS、静态资源）
 │   ├── logic/assistant/     # LLM 客户端、系统提示词、工具循环
@@ -105,6 +106,42 @@ with sync_playwright() as p:
 EOF
 
 # 视觉验收：让用户开浏览器看三个页面（⌘⇧R 强刷）
+```
+
+## 版本发布流程（用户说「发布新版本 / 发版」时一条龙执行）
+
+当用户要求发布新版本时，按以下 6 步完整执行，不要漏步：
+
+```bash
+# 1. 升级版本号 & 重新构建前端 bundle（确保 go:embed 打入最新产物，gzip ≤ 40KB）
+#    同步检查 frontend/package.json 的 version 字段与 README 文档
+cd frontend && npm run build && cd ..
+
+# 2. 跑全量 Go 测试
+go test ./...
+
+# 3. Git Commit & Push 到 main（遵循中文约定式提交格式）
+git add -A
+git commit -m "feat: 发布 vX.Y.Z（核心摘要）
+
+- 要点 1
+- 要点 2"
+git push origin main
+
+# 4. 打 Annotated Tag 并推送远端
+git tag -a vX.Y.Z -m "release vX.Y.Z: summary"
+git push origin vX.Y.Z
+
+# 5. 创建 GitHub Release（附带中文 Release Notes + 构建产物 frontend/dist/dq-widget.js）
+gh release create vX.Y.Z frontend/dist/dq-widget.js \
+  --title "vX.Y.Z — 版本标题" \
+  --notes "## gf-mate vX.Y.Z ..."
+
+# 6. 刷新 Go 官方代理、校验和库与 pkg.go.dev 文档索引
+curl -sS "https://proxy.golang.org/github.com/strugglerx/gf-mate/@v/vX.Y.Z.info"
+curl -sS "https://proxy.golang.org/github.com/strugglerx/gf-mate/@latest"
+curl -sS "https://sum.golang.org/lookup/github.com/strugglerx/gf-mate@vX.Y.Z"
+curl -sS -X POST "https://pkg.go.dev/fetch/github.com/strugglerx/gf-mate@vX.Y.Z"
 ```
 
 ## 其他约定
