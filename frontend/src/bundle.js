@@ -37,7 +37,7 @@ const BUBBLE_CSS = `
   transform: translateY(0) scale(0.98);
 }
 .dq-panel {
-  position: fixed; bottom: 86px; right: 24px; width: 400px; height: 580px;
+  position: fixed; bottom: 86px; right: 24px; width: 460px; height: 620px;
   min-width: 320px; min-height: 360px;
   max-width: calc(100vw - 32px); max-height: calc(100vh - 110px);
   border-radius: 16px;
@@ -46,17 +46,11 @@ const BUBBLE_CSS = `
   overflow: hidden; z-index: 2147483000; display: none; flex-direction: column;
   background: #ffffff;
   transform-origin: bottom right;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), height 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
-/* 左上角拖拽手柄：面板锚定右下角，向左上扩展更符合直觉 */
-.dq-panel-resizer {
-  position: absolute; top: 0; left: 0; width: 16px; height: 16px;
-  cursor: nwse-resize; z-index: 2147483001;
-}
-.dq-panel-resizer::before {
-  content: ""; position: absolute; top: 5px; left: 5px; width: 7px; height: 7px;
-  border-top: 2px solid rgba(100, 116, 139, 0.55);
-  border-left: 2px solid rgba(100, 116, 139, 0.55);
-  border-top-left-radius: 2px;
+.dq-panel.dq-maximized {
+  width: min(940px, calc(100vw - 32px)) !important;
+  height: min(88vh, 880px) !important;
 }
 .dq-panel.dq-open {
   display: flex;
@@ -67,7 +61,28 @@ const BUBBLE_CSS = `
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 @media (max-width: 480px) {
-  .dq-panel { right: 8px; left: 8px; width: auto; bottom: 82px; border-radius: 14px; }
+  .dq-panel { right: 8px; left: 8px; width: auto !important; bottom: 82px; border-radius: 14px; }
+}
+`;
+
+const RESIZE_SHADOW_CSS = `
+.dq-panel-resizer {
+  position: absolute; top: 0; left: 0; width: 18px; height: 18px;
+  cursor: nwse-resize; z-index: 100; user-select: none; touch-action: none;
+}
+.dq-panel-resizer::before {
+  content: ""; position: absolute; top: 5px; left: 5px; width: 7px; height: 7px;
+  border-top: 2px solid rgba(100, 116, 139, 0.55);
+  border-left: 2px solid rgba(100, 116, 139, 0.55);
+  border-top-left-radius: 2px;
+}
+.dq-resize-edge-top {
+  position: absolute; top: 0; left: 18px; right: 0; height: 6px;
+  cursor: ns-resize; z-index: 99; user-select: none; touch-action: none;
+}
+.dq-resize-edge-left {
+  position: absolute; top: 18px; left: 0; bottom: 0; width: 6px;
+  cursor: ew-resize; z-index: 99; user-select: none; touch-action: none;
 }
 `;
 
@@ -77,35 +92,62 @@ const scriptTitle = scriptEl && scriptEl.dataset.dqTitle || undefined;
 const scriptColor = scriptEl && scriptEl.dataset.dqColor || undefined;
 const scriptExamples = scriptEl && scriptEl.dataset.dqExamples || undefined;
 
-// attachResizer 给浮动面板加左上角拖拽缩放手柄。面板锚定右下角（right/bottom 固定），
-// 所以向左上拖拽时以鼠标位移反向增减宽高，受 min/max 尺寸约束。手柄在 light DOM，
-// 不进 Shadow DOM，避免与 widget 内部事件冲突。
-function attachResizer(panel) {
-  const resizer = document.createElement('div');
-  resizer.className = 'dq-panel-resizer';
-  panel.appendChild(resizer);
-  resizer.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const rect = panel.getBoundingClientRect();
-    const startW = rect.width;
-    const startH = rect.height;
-    resizer.setPointerCapture(e.pointerId);
-    const onMove = (ev) => {
-      // 向左拖（clientX 变小）增宽，向上拖（clientY 变小）增高。
-      panel.style.width = (startW + (startX - ev.clientX)) + 'px';
-      panel.style.height = (startH + (startY - ev.clientY)) + 'px';
-    };
-    const onUp = (ev) => {
-      resizer.releasePointerCapture(ev.pointerId);
-      resizer.removeEventListener('pointermove', onMove);
-      resizer.removeEventListener('pointerup', onUp);
-    };
-    resizer.addEventListener('pointermove', onMove);
-    resizer.addEventListener('pointerup', onUp);
-  });
+// attachResizer 在 Shadow DOM 内挂载左上角、上边缘、左边缘三个拖拽缩放热区。
+// 注意：panel 挂载了 ShadowRoot 且无 <slot>，任何挂在 panel Light DOM 的子节点都不会渲染，
+// 因此缩放手柄必须挂入 shadow 内部才能接收指针事件。
+function attachResizer(panel, shadow, onManualResize) {
+  const corner = document.createElement('div');
+  corner.className = 'dq-panel-resizer';
+  const topEdge = document.createElement('div');
+  topEdge.className = 'dq-resize-edge-top';
+  const leftEdge = document.createElement('div');
+  leftEdge.className = 'dq-resize-edge-left';
+  shadow.append(corner, topEdge, leftEdge);
+
+  function bindHandle(el, resizeX, resizeY) {
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const rect = panel.getBoundingClientRect();
+      const startW = rect.width;
+      const startH = rect.height;
+      panel.style.width = startW + 'px';
+      panel.style.height = startH + 'px';
+      panel.classList.remove('dq-maximized');
+      panel.style.transition = 'none';
+      if (typeof onManualResize === 'function') {
+        onManualResize();
+      }
+      el.setPointerCapture(e.pointerId);
+      const onMove = (ev) => {
+        if (resizeX) {
+          const nextW = Math.max(320, Math.min(window.innerWidth - 32, startW + (startX - ev.clientX)));
+          panel.style.width = nextW + 'px';
+        }
+        if (resizeY) {
+          const nextH = Math.max(360, Math.min(window.innerHeight - 110, startH + (startY - ev.clientY)));
+          panel.style.height = nextH + 'px';
+        }
+      };
+      const onUp = (ev) => {
+        panel.style.transition = '';
+        try { el.releasePointerCapture(ev.pointerId); } catch { /* ignore */ }
+        el.removeEventListener('pointermove', onMove);
+        el.removeEventListener('pointerup', onUp);
+        el.removeEventListener('pointercancel', onUp);
+      };
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerup', onUp);
+      el.addEventListener('pointercancel', onUp);
+    });
+  }
+
+  bindHandle(corner, true, true);
+  bindHandle(topEdge, false, true);
+  bindHandle(leftEdge, true, false);
 }
 
 function mount(opts) {
@@ -121,6 +163,9 @@ function mount(opts) {
     style.id = 'dq-bubble-style';
     style.textContent = BUBBLE_CSS;
     document.head.appendChild(style);
+  } else {
+    // 确保新版样式覆盖旧缓存标签
+    document.getElementById('dq-bubble-style').textContent = BUBBLE_CSS;
   }
 
   const bubble = document.createElement('button');
@@ -135,10 +180,9 @@ function mount(opts) {
   // 面板：Shadow DOM 隔离样式（不污染宿主，也不被宿主污染）。
   const panel = document.createElement('div');
   panel.className = 'dq-panel';
-  attachResizer(panel);
   const shadow = panel.attachShadow({ mode: 'open' });
   const shadowStyle = document.createElement('style');
-  shadowStyle.textContent = cssText;
+  shadowStyle.textContent = cssText + '\n' + RESIZE_SHADOW_CSS;
   shadow.appendChild(shadowStyle);
   const widgetRoot = document.createElement('div');
   widgetRoot.className = 'dq-widget-root';
@@ -146,7 +190,26 @@ function mount(opts) {
   shadow.appendChild(widgetRoot);
 
   // headers：对象 / 函数 / Promise，每次请求前求值（宿主 Bearer token 鉴权用）。
-  initWidget(widgetRoot, { base: base || undefined, title, color, examples, headers: opts.headers });
+  const widgetCtrl = initWidget(widgetRoot, {
+    base: base || undefined,
+    title,
+    color,
+    examples,
+    headers: opts.headers,
+    onToggleMaximize(maxed) {
+      panel.classList.toggle('dq-maximized', !!maxed);
+    },
+    onClose() {
+      panel.classList.remove('dq-open');
+      bubble.innerHTML = BUBBLE_SVG;
+    },
+  });
+
+  attachResizer(panel, shadow, () => {
+    if (widgetCtrl && typeof widgetCtrl.setMaximized === 'function') {
+      widgetCtrl.setMaximized(false);
+    }
+  });
 
   bubble.addEventListener('click', () => {
     const isOpen = panel.classList.toggle('dq-open');

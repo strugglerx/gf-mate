@@ -62,6 +62,9 @@ export function initWidget(root, opts) {
 
   maxBtn.addEventListener('click', () => {
     updateMaxBtn(!isMaximized);
+    if (typeof opts.onToggleMaximize === 'function') {
+      opts.onToggleMaximize(isMaximized);
+    }
     window.parent.postMessage({ type: 'dq-toggle-maximize', maximized: isMaximized }, '*');
   });
 
@@ -76,6 +79,9 @@ export function initWidget(root, opts) {
   closeBtn.title = '关闭';
   closeBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
   closeBtn.addEventListener('click', () => {
+    if (typeof opts.onClose === 'function') {
+      opts.onClose();
+    }
     window.parent.postMessage({ type: 'dq-close' }, '*');
   });
 
@@ -660,23 +666,6 @@ export function initWidget(root, opts) {
 
 
 
-  function showThinking(div) {
-    if (div.querySelector('.thinking')) return;
-    const t = document.createElement('div');
-    t.className = 'thinking';
-    const dots = document.createElement('span');
-    dots.className = 'thinking-dots';
-    for (let i = 0; i < 3; i++) dots.appendChild(document.createElement('span'));
-    const label = document.createElement('span');
-    label.textContent = '思考中…';
-    t.append(dots, label);
-    div.appendChild(t);
-  }
-  function hideThinking(div) {
-    const t = div.querySelector('.thinking');
-    if (t) t.remove();
-  }
-
   async function sendChat(text) {
     if (isBusy) return;
     text = (text || input.value).trim();
@@ -687,11 +676,10 @@ export function initWidget(root, opts) {
     chatHistory.push({ role: 'user', content: text });
     if (chatHistory.length > MAX_HISTORY) chatHistory.splice(0, chatHistory.length - MAX_HISTORY);
     const assistantDiv = addMessage('assistant', '');
-    showThinking(assistantDiv);
     let finalAnswerText = '';
 
     setBusy(true);
-    status.textContent = '思考中…';
+    status.textContent = '';
     currentAbortController = new AbortController();
 
     thinkStartTime = Date.now();
@@ -744,7 +732,6 @@ export function initWidget(root, opts) {
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let gotAnyEvent = false;
 
       for (;;) {
         const { done, value } = await reader.read();
@@ -760,10 +747,6 @@ export function initWidget(root, opts) {
             if (!payload || payload === '[DONE]') continue;
             try {
               const chunk = JSON.parse(payload);
-              if (!gotAnyEvent) {
-                gotAnyEvent = true;
-                hideThinking(assistantDiv);
-              }
 
               // 1. smart-ai 标准 agent.event（工具流精准驱动）
               if (chunk.object === 'agent.event') {
@@ -823,7 +806,6 @@ export function initWidget(root, opts) {
 
               // 思考增量流（走独立 ThinkingSegment）
               if (delta.reasoning_content) {
-                status.textContent = '思考中…';
                 const raw = delta.reasoning_content;
                 if (/^(\[工具调用\]|\[执行成功\]|\[执行失败\])/.test(raw)) {
                   // 如果已经通过 agent.event 驱动了结构化工具流，忽略文本兼容行，避免生成重影工具！
@@ -908,7 +890,7 @@ export function initWidget(root, opts) {
         if (changed) renderToolsSlot(assistantDiv);
       }
 
-      hideThinking(assistantDiv);
+      clearInitPlaceholder(assistantDiv);
       finalizeThinkingSeg(assistantDiv);
       renderContentSlot(assistantDiv, false);
       status.textContent = '';
@@ -918,7 +900,7 @@ export function initWidget(root, opts) {
         if (chatHistory.length > MAX_HISTORY) chatHistory.splice(0, chatHistory.length - MAX_HISTORY);
       }
     } catch (e) {
-      hideThinking(assistantDiv);
+      clearInitPlaceholder(assistantDiv);
       finalizeThinkingSeg(assistantDiv);
       if (e.name === 'AbortError') {
         appendStreamText(assistantDiv, '\n\n*（已停止生成）*');
@@ -927,7 +909,7 @@ export function initWidget(root, opts) {
         appendStreamText(assistantDiv, '\n\n[错误] ' + e.message);
         status.textContent = '失败';
       }
-      renderSegments(assistantDiv, false);
+      renderContentSlot(assistantDiv, false);
     } finally {
       setBusy(false);
     }
@@ -958,4 +940,8 @@ export function initWidget(root, opts) {
       sendChat(btn.textContent.trim());
     }
   });
+
+  return {
+    setMaximized: updateMaxBtn,
+  };
 }
